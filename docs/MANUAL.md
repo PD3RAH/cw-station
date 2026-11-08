@@ -1,6 +1,6 @@
 # CW Station – User Manual
 
-*Version 2.3 · for the Icom IC-7300 and IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
+*Version 2.3.1 · for the Icom IC-7300 and IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
 
 ![CW Station](screenshot.png)
 

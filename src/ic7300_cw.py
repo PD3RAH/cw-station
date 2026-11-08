@@ -39,7 +39,7 @@ except (ImportError, OSError):
 
 # ----------------------------------------------------------------- settings / instellingen
 APP_NAME = "CW Station"
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.3.1"
 SURVEY_URL = "https://www.pd3rah.nl/cwstation/enquete.php"
 REPO_URL = "https://github.com/PD3RAH/cw-station"
 RELEASE_API = "https://api.github.com/repos/PD3RAH/cw-station/releases/latest"
@@ -874,6 +874,8 @@ class Waterfall:
         if w != self.width:
             self.width = w
             self.arr = np.zeros((self.hw, w, 3), dtype=np.uint8)
+            if self.row is not None:            # spectrumlijn meeschalen naar de nieuwe breedte
+                self.row = np.interp(np.linspace(0, len(self.row) - 1, w), np.arange(len(self.row)), self.row)
             self.dirty = True
 
     def _click(self, ev):
@@ -913,8 +915,9 @@ class Waterfall:
                               fill=C["dim"], font=("Consolas", 8), tags="ov")
         # spectrum: gevulde vorm + lijn
         if self.row is not None:
-            step = max(1, self.width // 600)
-            xs = np.arange(0, self.width, step)
+            n = min(len(self.row), self.width)
+            step = max(1, n // 600)
+            xs = np.arange(0, n, step)
             ys = self.hs - 2 - self.row[xs] * (self.hs - 16)
             pts = np.column_stack([xs, ys]).ravel().tolist()
             if len(pts) >= 4:

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.1 – 2026-11-08
+- Fix: waterfall crashed ("index out of bounds") when the window width changed by a pixel on wide screens.
+  In versions before 2.3.0 this stopped all screen updates, which looked like the audio was not working.
+
 ## 2.3.0 – 2026-11-08
 - Update notification: checks GitHub releases at start-up (WinHTTP, no OpenSSL needed); can be turned off
 - Decoder tools panel: speed, SNR, dit/dah, weight and gaps, live character, Match speed, Reset decoder;
