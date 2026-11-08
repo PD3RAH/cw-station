@@ -43,8 +43,8 @@ also included in the installer; open it with the **Manual** button.
    access your microphone"**. The IC-7300 USB audio counts as a microphone.
 3. On the first start, enter your callsign under **Settings**.
 
-> The installer is not code-signed, so Windows SmartScreen may warn you. Click
-> *More info → Run anyway*.
+> The installer is not code-signed, so Windows SmartScreen shows *"Windows protected your PC"*.
+> Click *More info → Run anyway*. Only download from this repository's Releases page.
 
 Running from source instead: `pip install -r requirements.txt` and then `python src/ic7300_cw.py`
 (Python 3.10+ with tkinter).
@@ -86,6 +86,13 @@ python3 installer/build_installer.py
 
 The script assembles a trimmed Windows Python 3.12 runtime from pinned conda-forge
 packages and PyPI wheels, then packs it with NSIS into `dist/`.
+
+## Disclaimer
+
+CW Station is provided **"as is", without any warranty**. Use is at your own risk; the author is
+not liable for any damage or loss, including damage to radio, antenna or computer. You are
+responsible for transmitting only where your licence permits. No rights can be derived from the
+program or the manual. See the [manual, chapter 16](docs/MANUAL.md#16-disclaimer).
 
 ## License
 
@@ -143,6 +150,17 @@ handleiding zit ook in de installer; open hem met de knop **Handleiding**.
 Zie de tabel hierboven voor de CI-V-instellingen van de IC-7300. Je instellingen en je
 logboek staan in `%APPDATA%\CWStation` en blijven bewaard als je het programma verwijdert
 of bijwerkt.
+
+## Disclaimer
+
+CW Station wordt geleverd **"zoals het is", zonder enige garantie**. Gebruik is op eigen risico; de
+maker is niet aansprakelijk voor schade of verlies, ook niet aan radio, antenne of computer. Je
+bent zelf verantwoordelijk dat je alleen uitzendt waar je machtiging dat toestaat. Aan het
+programma en de handleiding kunnen geen rechten worden ontleend. Zie de
+[handleiding, hoofdstuk 16](docs/HANDLEIDING.md#16-disclaimer).
+
+Windows kan bij het installeren *"Uw pc wordt beschermd"* melden: klik op *Meer informatie →
+Toch uitvoeren*. Download alleen van de Releases-pagina van deze repository.
 
 ## Licentie
 

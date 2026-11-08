@@ -28,7 +28,8 @@ VIAddVersionKey /LANG=0 "LegalCopyright" "(c) 2026 Richard A. Hendriksen (PD3RAH
 !define MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenMic
 
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "${STAGE}\LICENSE"
+!define MUI_LICENSEPAGE_CHECKBOX
+!insertmacro MUI_PAGE_LICENSE "${STAGE}\DISCLAIMER.txt"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -98,6 +99,7 @@ Section "Uninstall"
   Delete "$INSTDIR\start.pyw"
   Delete "$INSTDIR\README.md"
   Delete "$INSTDIR\LICENSE"
+  Delete "$INSTDIR\DISCLAIMER.txt"
   Delete "$INSTDIR\THIRD_PARTY_NOTICES.md"
   Delete "$INSTDIR\cwstation.ico"
   Delete "$INSTDIR\Uninstall.exe"

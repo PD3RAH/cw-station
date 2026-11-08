@@ -1,6 +1,6 @@
 # CW Station – Handleiding
 
-*Versie 2.4 · voor de Icom IC-7300 en IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
+*Versie 2.4.4 · voor de Icom IC-7300 en IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
 
 ![CW Station](screenshot_nl.png)
 
@@ -32,6 +32,7 @@ CW Station is een gratis Windows-programma voor morse (CW) met je Icom IC-7300 o
 13. [Sneltoetsen](#13-sneltoetsen)
 14. [Problemen oplossen](#14-problemen-oplossen)
 15. [Bestanden, bijwerken en verwijderen](#15-bestanden-bijwerken-en-verwijderen)
+16. [Disclaimer](#16-disclaimer)
 
 ---
 
@@ -47,12 +48,27 @@ Python of andere software heb je niet nodig; alles zit in de installer.
 ## 2. Installeren
 
 1. Download **CWStation-Setup-x.y.z.exe** bij *Releases* op GitHub en start het bestand.
-2. Ziet je een blauw scherm *"Windows heeft uw pc beveiligd"*? Klik dan op **Meer info → Toch uitvoeren**. Dit komt doordat het programma niet digitaal ondertekend is.
-3. Kies je taal en klik door de installatie. Beheerdersrechten zijn niet nodig.
+2. Krijg je een blauw scherm **"Uw pc wordt beschermd"**, lees dan het kader hieronder.
+3. Kies je taal, lees en **accepteer de disclaimer** en klik door de installatie. Beheerdersrechten zijn niet nodig.
 4. Laat op het laatste scherm het vinkje **"Microfoon-privacyinstelling openen"** aan en zet daar **"Desktop-apps toegang geven tot je microfoon"** aan.
    Windows ziet de USB-audio van de radio als microfoon. Zonder deze instelling krijgt CW Station geen geluid binnen.
 
 Er komt een snelkoppeling **CW Station** op je bureaublad en in het Startmenu.
+
+### Melding "Uw pc wordt beschermd" (Windows SmartScreen)
+
+Bij het starten van de installer of een update toont Windows vaak deze melding:
+
+![Uw pc wordt beschermd](smartscreen_1.png)
+
+1. Klik op **Meer informatie**.
+2. Er verschijnt nu een knop **Toch uitvoeren**. Klik daarop.
+
+![Toch uitvoeren](smartscreen_2.png)
+
+**Waarom krijg je deze melding?** CW Station is gratis hobbysoftware zonder (betaald) digitaal certificaat. Windows kent het programma daardoor niet, en de uitgever staat als *"Onbekende uitgever"* vermeld. De melding betekent niet dat er een virus in zit. Download de installer alleen van de officiële plek: de *Releases*-pagina op **github.com/PD3RAH/cw-station**.
+
+Ook een virusscanner kan het bestand tegenhouden of in quarantaine zetten. Zet het dan terug uit de quarantaine, of voeg de map `%LOCALAPPDATA%\CWStation` toe aan de uitzonderingen.
 
 ## 3. De radio instellen
 
@@ -259,6 +275,18 @@ Open **⚙ Instellingen**:
 - **Fouten**: interne fouten worden opgeslagen in `%APPDATA%\CWStation\error.log`. Stuur dat bestand mee als je een probleem meldt.
 - **Verwijderen**: via *Windows Instellingen → Apps → CW Station*.
 - **Enquête**: met de knop **Enquête** laat je weten wat goed werkt en wat beter kan. Je antwoorden gaan rechtstreeks naar de maker.
+
+## 16. Disclaimer
+
+CW Station is gratis software en wordt geleverd **"zoals het is"** (*as is*), **zonder enige garantie**. Er is geen garantie dat het programma foutloos werkt, en ook niet dat het geschikt is voor een bepaald doel.
+
+- **Gebruik is op eigen risico.** De maker is niet aansprakelijk voor schade of verlies door het gebruik van dit programma, of doordat het niet gebruikt kan worden. Denk aan schade aan je radio, antenne of computer, verlies van gegevens, of storing.
+- **Jij bent verantwoordelijk voor wat je uitzendt.** Zend alleen op frequenties, banden en met vermogens die je machtiging toestaat, en houd je aan de regels van je land.
+- **Aan dit programma, de handleiding en de vertalingen kunnen geen rechten worden ontleend.** Functies kunnen zonder aankondiging veranderen.
+- De meterwaarden (vermogen, SWR, ALC, stroom, spanning) zijn een benadering en geen meetinstrument.
+- CW Station is **niet gelieerd** aan Icom Inc. "Icom", "IC-7300" en "IC-7300MK2" zijn merknamen van Icom Inc.
+
+De volledige juridische tekst is de **MIT-licentie** (bestand `LICENSE`). Bij verschil tussen deze samenvatting en de licentie geldt de licentie.
 
 ---
 

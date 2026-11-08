@@ -1,6 +1,6 @@
 # CW Station – User Manual
 
-*Version 2.4 · for the Icom IC-7300 and IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
+*Version 2.4.4 · for the Icom IC-7300 and IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
 
 ![CW Station](screenshot.png)
 
@@ -32,6 +32,7 @@ CW Station is a free Windows program for Morse code (CW) with your Icom IC-7300 
 13. [Keyboard shortcuts](#13-keyboard-shortcuts)
 14. [Troubleshooting](#14-troubleshooting)
 15. [Files, updating and uninstalling](#15-files-updating-and-uninstalling)
+16. [Disclaimer](#16-disclaimer)
 
 ---
 
@@ -47,12 +48,27 @@ You do not need Python or any other software; everything is included in the inst
 ## 2. Installation
 
 1. Download **CWStation-Setup-x.y.z.exe** from *Releases* on GitHub and run it.
-2. If you see a blue *"Windows protected your PC"* screen, click **More info → Run anyway**. This happens because the program is not code-signed.
-3. Choose your language and click through the installer. No administrator rights are needed.
+2. If you see a blue **"Windows protected your PC"** screen, read the box below.
+3. Choose your language, read and **accept the disclaimer**, and click through the installer. No administrator rights are needed.
 4. On the last page, leave **"Open microphone privacy settings"** ticked and turn on **"Let desktop apps access your microphone"**.
    Windows treats the radio's USB audio as a microphone. Without this setting, CW Station receives no audio.
 
 A **CW Station** shortcut is added to your desktop and the Start menu.
+
+### "Windows protected your PC" message (Windows SmartScreen)
+
+When you start the installer or an update, Windows often shows this message (Dutch Windows shown):
+
+![Windows protected your PC](smartscreen_1.png)
+
+1. Click **More info**.
+2. A **Run anyway** button now appears. Click it.
+
+![Run anyway](smartscreen_2.png)
+
+**Why does this appear?** CW Station is free hobby software without a (paid) code-signing certificate. Windows therefore does not recognise the program, and the publisher is shown as *"Unknown publisher"*. The message does not mean that it contains a virus. Only download the installer from the official place: the *Releases* page at **github.com/PD3RAH/cw-station**.
+
+An antivirus program may also block the file or move it to quarantine. Restore it from quarantine, or add the folder `%LOCALAPPDATA%\CWStation` to the exclusions.
 
 ## 3. Radio settings
 
@@ -259,6 +275,18 @@ Open **⚙ Settings**:
 - **Errors**: internal errors are saved in `%APPDATA%\CWStation\error.log`. Please include this file when you report a problem.
 - **Uninstall**: via *Windows Settings → Apps → CW Station*.
 - **Survey**: use the **Survey** button to say what works well and what could be better. Your answers go straight to the author.
+
+## 16. Disclaimer
+
+CW Station is free software and is provided **"as is"**, **without any warranty**. There is no guarantee that the program works without errors, or that it is fit for any particular purpose.
+
+- **Use is at your own risk.** The author is not liable for any damage or loss caused by using this program, or by not being able to use it. This includes damage to your radio, antenna or computer, loss of data, or interference.
+- **You are responsible for what you transmit.** Only transmit on frequencies and bands, and with power levels, that your licence permits, and follow the rules of your country.
+- **No rights can be derived from this program, the manual or the translations.** Features may change without notice.
+- The meter readings (power, SWR, ALC, current, voltage) are approximations, not a measuring instrument.
+- CW Station is **not affiliated** with Icom Inc. "Icom", "IC-7300" and "IC-7300MK2" are trademarks of Icom Inc.
+
+The full legal text is the **MIT License** (file `LICENSE`). If this summary and the license differ, the license applies.
 
 ---
 

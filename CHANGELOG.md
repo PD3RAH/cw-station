@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.4 – 2026-11-08
+- Manual (NL/EN): step-by-step help for the Windows SmartScreen message, with screenshots
+- Disclaimer ("as is", no warranty, no rights can be derived) in the manual (chapter 16), README,
+  Settings window and as a page in the installer that must be accepted (NL/EN)
+
 ## 2.4.3 – 2026-11-08
 - Skimmer: far fewer false detections. New channels need a peak that repeatedly rises 14 dB above the
   noise; channels closer than 45 Hz are merged; noise-like channels are hidden; callsigns are shown

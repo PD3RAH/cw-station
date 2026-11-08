@@ -123,8 +123,8 @@ def build_docs(dest):
         body = markdown.markdown(text, extensions=["tables", "toc"])
         with open(os.path.join(dest, md.replace(".md", ".html")), "w", encoding="utf-8") as f:
             f.write(HTML_TEMPLATE.format(lang=lang, title=title, body=body))
-    for img in ("screenshot.png", "screenshot_nl.png"):
-        shutil.copy2(os.path.join(ROOT, "docs", img), dest)
+    for img in glob.glob(os.path.join(ROOT, "docs", "*.png")):
+        shutil.copy2(img, dest)
 
 
 def remove(pattern, base):
@@ -186,6 +186,7 @@ def main():
         shutil.copy2(os.path.join(ROOT, f), STAGE)
     shutil.copytree(os.path.join(ROOT, "licenses"), os.path.join(STAGE, "licenses"))
     shutil.copy2(os.path.join(ROOT, "installer", "cwstation.ico"), STAGE)
+    shutil.copy2(os.path.join(ROOT, "installer", "DISCLAIMER.txt"), STAGE)
     build_docs(os.path.join(STAGE, "docs"))
 
     size = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(STAGE) for f in fs)

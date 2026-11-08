@@ -39,7 +39,7 @@ except (ImportError, OSError):
 
 # ----------------------------------------------------------------- settings / instellingen
 APP_NAME = "CW Station"
-APP_VERSION = "2.4.3"
+APP_VERSION = "2.4.4"
 SURVEY_URL = "https://www.pd3rah.nl/cwstation/enquete.php"
 REPO_URL = "https://github.com/PD3RAH/cw-station"
 RELEASE_API = "https://api.github.com/repos/PD3RAH/cw-station/releases/latest"
@@ -3187,7 +3187,9 @@ class App:
         FlatButton(bar, t("Opslaan", "Save"), command=save, accent=C["acc"]).pack(side="right")
         FlatButton(bar, t("Annuleren", "Cancel"), command=w.destroy).pack(side="right", padx=6)
         label(bar, f"{APP_NAME} {APP_VERSION}  ·  MIT License  ·  " +
-              t("niet gelieerd aan Icom Inc.", "not affiliated with Icom Inc."), font=(UI, S(8)), bg=C["bg"]).pack(side="left")
+              t("geleverd zoals het is, zonder garantie (zie handleiding H16)  ·  niet gelieerd aan Icom Inc.",
+                "provided as is, without warranty (see manual ch. 16)  ·  not affiliated with Icom Inc."),
+              font=(UI, S(8)), bg=C["bg"]).pack(side="left")
         w.grab_set()
 
     def _quit(self):
