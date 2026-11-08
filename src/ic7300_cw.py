@@ -39,9 +39,10 @@ except (ImportError, OSError):
 
 # ----------------------------------------------------------------- settings / instellingen
 APP_NAME = "CW Station"
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.3.0"
 SURVEY_URL = "https://www.pd3rah.nl/cwstation/enquete.php"
 REPO_URL = "https://github.com/PD3RAH/cw-station"
+RELEASE_API = "https://api.github.com/repos/PD3RAH/cw-station/releases/latest"
 RADIOS = {0x94: "IC-7300", 0xB6: "IC-7300MK2"}     # standaard CI-V-adressen
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "CWStation")
@@ -62,6 +63,7 @@ DEFAULT_CONFIG = {
     "lang": "nl",
     "theme": "Amber",
     "cq_repeat": 8,
+    "check_updates": True,
     "macros": {
         "F1": ["CQ", "CQ CQ CQ DE {MYCALL} {MYCALL} {MYCALL} K"],
         "F2": ["Call", "{CALL} DE {MYCALL} {MYCALL} K"],
@@ -490,6 +492,9 @@ class AudioEngine:
         self.buf = np.zeros(0, dtype=np.float32)
         self.win = np.hanning(self.FFT).astype(np.float32)
         self.running = True
+        self.level_db = -200.0
+        self.blocks = 0
+        self.error = None
         self.stream = sd.InputStream(device=device, channels=1, samplerate=fs,
                                      blocksize=fs // 100, dtype="float32",
                                      callback=self._cb)
@@ -509,17 +514,24 @@ class AudioEngine:
                 blk = self.q.get(timeout=0.2)
             except queue.Empty:
                 continue
-            self.decoder.process(blk)
-            if self.skimmer is not None:
-                self.skimmer.process(blk)
-            self.buf = np.concatenate([self.buf, blk])[-self.FFT:]
-            since += len(blk)
-            if since >= self.hop and len(self.buf) == self.FFT:
-                since = 0
-                spec = np.abs(np.fft.rfft(self.buf * self.win))
+            try:
+                rms = float(np.sqrt(np.mean(blk.astype(np.float64) ** 2)))
+                self.level_db = 20 * math.log10(rms) if rms > 1e-9 else -200.0
+                self.blocks += 1
+                self.decoder.process(blk)
                 if self.skimmer is not None:
-                    self.skimmer.spectrum(spec)
-                self.on_wf_row(spec, self.fs)
+                    self.skimmer.process(blk)
+                self.buf = np.concatenate([self.buf, blk])[-self.FFT:]
+                since += len(blk)
+                if since >= self.hop and len(self.buf) == self.FFT:
+                    since = 0
+                    spec = np.abs(np.fft.rfft(self.buf * self.win))
+                    if self.skimmer is not None:
+                        self.skimmer.spectrum(spec)
+                    self.on_wf_row(spec, self.fs)
+            except Exception as e:                      # nooit stilletjes stoppen
+                self.error = f"{type(e).__name__}: {e}"
+                log_error("audio", e)
 
     def close(self):
         self.running = False
@@ -632,6 +644,98 @@ class Skimmer:
         with self.lock:
             return [dict(id=c["id"], tone=c["tone"], text=c["text"], wpm=c["dec"].wpm,
                          snr=c["snr"], last=c["last"]) for c in self.ch.values()]
+
+
+# ----------------------------------------------------------------- hulpfuncties: foutlog en http
+def log_error(where, exc):
+    try:
+        import traceback
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(os.path.join(DATA_DIR, "error.log"), "a", encoding="utf-8") as f:
+            f.write(f"--- {time.strftime('%Y-%m-%d %H:%M:%S')} {where} (v{APP_VERSION})\n")
+            f.write("".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-4000:] + "\n")
+    except Exception:
+        pass
+
+
+def _winhttp_get(url, timeout=8, headers=""):
+    """HTTP(S) GET via Windows WinHTTP (gebruikt de TLS en proxy-instellingen van Windows)."""
+    import ctypes
+    from ctypes import wintypes
+    from urllib.parse import urlsplit
+    w = ctypes.WinDLL("winhttp")
+    H = ctypes.c_void_p
+    w.WinHttpOpen.restype = H
+    w.WinHttpOpen.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD]
+    w.WinHttpConnect.restype = H
+    w.WinHttpConnect.argtypes = [H, wintypes.LPCWSTR, wintypes.WORD, wintypes.DWORD]
+    w.WinHttpOpenRequest.restype = H
+    w.WinHttpOpenRequest.argtypes = [H, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR,
+                                     ctypes.c_void_p, wintypes.DWORD]
+    w.WinHttpSendRequest.argtypes = [H, wintypes.LPCWSTR, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+                                     wintypes.DWORD, ctypes.c_size_t]
+    w.WinHttpReceiveResponse.argtypes = [H, ctypes.c_void_p]
+    w.WinHttpQueryDataAvailable.argtypes = [H, ctypes.POINTER(wintypes.DWORD)]
+    w.WinHttpReadData.argtypes = [H, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    w.WinHttpQueryHeaders.argtypes = [H, wintypes.DWORD, wintypes.LPCWSTR, ctypes.c_void_p,
+                                      ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(wintypes.DWORD)]
+    w.WinHttpSetTimeouts.argtypes = [H, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+    w.WinHttpCloseHandle.argtypes = [H]
+    u = urlsplit(url)
+    secure = u.scheme == "https"
+    port = u.port or (443 if secure else 80)
+    path = (u.path or "/") + (("?" + u.query) if u.query else "")
+    agent = f"CWStation/{APP_VERSION}"
+    hs = w.WinHttpOpen(agent, 4, None, None, 0) or w.WinHttpOpen(agent, 0, None, None, 0)
+    hc = hr = None
+    try:
+        if not hs:
+            raise OSError("WinHttpOpen failed")
+        ms = int(timeout * 1000)
+        w.WinHttpSetTimeouts(hs, ms, ms, ms, ms)
+        hc = w.WinHttpConnect(hs, u.hostname, port, 0)
+        hr = w.WinHttpOpenRequest(hc, "GET", path, None, None, None, 0x00800000 if secure else 0)
+        if not hr:
+            raise OSError("WinHttpOpenRequest failed")
+        if not w.WinHttpSendRequest(hr, headers or None, 0xFFFFFFFF if headers else 0, None, 0, 0, 0):
+            raise OSError(f"WinHttpSendRequest failed ({ctypes.GetLastError()})")
+        if not w.WinHttpReceiveResponse(hr, None):
+            raise OSError(f"WinHttpReceiveResponse failed ({ctypes.GetLastError()})")
+        code, size = wintypes.DWORD(0), wintypes.DWORD(4)
+        w.WinHttpQueryHeaders(hr, 19 | 0x20000000, None, ctypes.byref(code), ctypes.byref(size), None)
+        data = b""
+        while True:
+            n = wintypes.DWORD(0)
+            if not w.WinHttpQueryDataAvailable(hr, ctypes.byref(n)) or n.value == 0:
+                break
+            buf = ctypes.create_string_buffer(n.value)
+            got = wintypes.DWORD(0)
+            w.WinHttpReadData(hr, buf, n.value, ctypes.byref(got))
+            data += buf.raw[:got.value]
+        if code.value and code.value >= 400:
+            raise OSError(f"HTTP {code.value}")
+        return data
+    finally:
+        for hnd in (hr, hc, hs):
+            if hnd:
+                w.WinHttpCloseHandle(hnd)
+
+
+def http_get(url, timeout=8):
+    hdr = "Accept: application/vnd.github+json\r\n"
+    try:
+        import ssl  # noqa: F401  (niet aanwezig in de gebundelde runtime)
+        import urllib.request
+        req = urllib.request.Request(url, headers={"User-Agent": f"CWStation/{APP_VERSION}",
+                                                   "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read()
+    except ImportError:
+        return _winhttp_get(url, timeout, hdr)
+
+
+def version_tuple(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v)[:3]) or (0,)
 
 
 # ----------------------------------------------------------------- CW zender
@@ -887,7 +991,7 @@ def panel(parent, title=None):
         lbl.pack(side="left")
         head.title = lbl
     body = tk.Frame(f, bg=C["panel"])
-    body.pack(fill="both", expand=True, padx=12, pady=8)
+    body.pack(fill="both", expand=True, padx=12, pady=6)
     return f, body, head
 
 
@@ -1133,7 +1237,7 @@ class BarMeter(tk.Canvas):
             ("Id", 0, 25, (5, 10, 15, 20, 25), "A")]
 
     def __init__(self, parent, w=360):
-        self.rh = 24
+        self.rh = 21
         super().__init__(parent, width=w, height=self.rh * len(self.ROWS) + 4,
                          bg=_mix(C["scr"], C["panel"], 0.5), highlightthickness=0)
         self.w = w
@@ -1216,7 +1320,7 @@ class SMeter(tk.Canvas):
     def __init__(self, parent, w=360, h=160, title="SIGNAL"):
         super().__init__(parent, width=w, height=h, bg=_mix(C["scr"], C["panel"], 0.5), highlightthickness=0)
         self.w, self.h = w, h
-        self.cx, self.cy, self.r = w / 2, h - 16, min(w / 2 - 40, h - 42)
+        self.cx, self.cy, self.r = w / 2, h - 10, min(w / 2 - 40, h - 20)
         self.val = 0.0
         self.target = 0.0
         self.title = title
@@ -1236,10 +1340,10 @@ class SMeter(tk.Canvas):
         marks = [(i * 120 / 9, str(i)) for i in (1, 3, 5, 7, 9)] + [(160, "+20"), (201, "+40"), (241, "+60")]
         for raw, t in marks:
             x1, y1 = self._xy(raw, r - 4)
-            x2, y2 = self._xy(raw, r - 14)
+            x2, y2 = self._xy(raw, r - 12)
             self.create_line(x1, y1, x2, y2, fill=C["text"], width=2)
-            tx, ty = self._xy(raw, r - 28)
-            self.create_text(tx, ty, text=t, fill=C["red"] if "+" in t else C["text"], font=(UI, 9))
+            tx, ty = self._xy(raw, r - 23)
+            self.create_text(tx, ty, text=t, fill=C["red"] if "+" in t else C["text"], font=(UI, 8))
         self.create_text(12, 10, text=self.title, anchor="nw", fill=C["acc"], font=(UI, 9, "bold"))
 
     @staticmethod
@@ -1347,6 +1451,9 @@ class App:
         self.detecting = False
         self.tx_meters = {"PO": None, "SWR": None, "ALC": None, "Id": None}
         self.vd = None
+        self.update_info = None
+        self._silent_since = None
+        self.tool_tab = "dec"
         self.cq_active = False
         self._word_start = None
         self._skim_t = 0
@@ -1420,6 +1527,7 @@ class App:
         self.af_var = tk.DoubleVar(value=0)
         self.rf_var = tk.DoubleVar(value=255)
         self.pwr_var = tk.DoubleVar(value=255)
+        self.upd_var = tk.BooleanVar(value=bool(self.cfg.get("check_updates", True)))
         self.fentry = tk.StringVar()
         self.call_var = tk.StringVar()
         self.rst_var = tk.StringVar(value="599")
@@ -1475,8 +1583,15 @@ class App:
         if self.cfg.get("mycall"):
             sub += "  ·  " + self.cfg["mycall"].upper()
         tk.Label(tt, text=sub, bg=C["bg"], fg=C["dim"], font=(UI, 10)).pack(anchor="w")
-        self.status = label(tt, "", fg=C["amber"], font=(UI, 9), bg=C["bg"])
-        self.status.pack(anchor="w")
+        srow = tk.Frame(tt, bg=C["bg"])
+        srow.pack(anchor="w")
+        self.status = label(srow, "", fg=C["amber"], font=(UI, 9), bg=C["bg"])
+        self.status.pack(side="left")
+        self.status.bind("<Button-1>", self._status_click)
+        self.upd_btn = FlatButton(srow, "", command=self._open_update, padx=10, pady=1,
+                                  font=(UI, 9, "bold"), accent=C["acc2"])
+        if self.update_info:
+            self._show_update_button()
 
         con = tk.Frame(hdr, bg=C["bg"])
         con.pack(side="right")
@@ -1528,7 +1643,7 @@ class App:
         f, b, _ = panel(left)
         f.pack(fill="x")
         self.freq_lbl = tk.Label(b, text=self._freq_text(), bg=C["panel"], fg="#f4fbff",
-                                 font=(DIGIT, 36, "bold"), cursor="sb_v_double_arrow")
+                                 font=(DIGIT, 32, "bold"), cursor="sb_v_double_arrow")
         self.freq_lbl.pack()
         self.freq_lbl.bind("<MouseWheel>", lambda e: self._step_tune(1 if e.delta > 0 else -1))
         fr = tk.Frame(b, bg=C["panel"])
@@ -1545,13 +1660,13 @@ class App:
 
         # --- knop + stap
         f, b, _ = panel(left)
-        f.pack(fill="x", pady=8)
-        self.knob = Knob(b, 150, self._step_tune)
+        f.pack(fill="x", pady=6)
+        self.knob = Knob(b, 124, self._step_tune)
         self.knob.pack(side="left")
         side = tk.Frame(b, bg=C["panel"])
         side.pack(side="left", fill="both", expand=True, padx=(8, 0))
-        self.tx_lbl = tk.Label(side, text="RX", bg=C["green"], fg="#03141c", font=(UI, 16, "bold"), width=5, pady=3)
-        self.tx_lbl.pack(pady=(4, 12))
+        self.tx_lbl = tk.Label(side, text="RX", bg=C["green"], fg="#03141c", font=(UI, 14, "bold"), width=5, pady=1)
+        self.tx_lbl.pack(pady=(2, 6))
         label(side, t("Afstemstap", "Tuning step")).pack()
         sr = tk.Frame(side, bg=C["panel"])
         sr.pack(pady=2)
@@ -1560,12 +1675,12 @@ class App:
         self.step_lbl.pack(side="left")
         FlatButton(sr, "›", command=lambda: self._chg_step(1), padx=9, pady=2).pack(side="left")
         self._chg_step(0)
-        label(side, t("slepen of scrollen", "drag or scroll"), font=(UI, 8)).pack(pady=(10, 0))
+        label(side, t("slepen of scrollen", "drag or scroll"), font=(UI, 8)).pack(pady=(4, 0))
 
         # --- S-meter
         f, b, _ = panel(left)
         f.pack(fill="x")
-        self.meter = SMeter(b, 360, 132, t("SIGNAAL", "SIGNAL"))
+        self.meter = SMeter(b, 360, 112, t("SIGNAAL", "SIGNAL"))
         self.meter.pack()
         self.bars = BarMeter(b, 360)
         self.bars.pack(pady=(6, 0))
@@ -1574,13 +1689,13 @@ class App:
 
         # --- AF / RF
         f, b, _ = panel(left)
-        f.pack(fill="x", pady=8)
+        f.pack(fill="x", pady=6)
         for name, var, cmd in (("AF", self.af_var, self._send_af), ("RF", self.rf_var, self._send_rf),
                                ("PWR", self.pwr_var, self._send_pwr)):
             rw = tk.Frame(b, bg=C["panel"])
-            rw.pack(fill="x", pady=2)
+            rw.pack(fill="x", pady=0)
             label(rw, name, fg=C["acc"], font=(UI, 10, "bold"), width=4).pack(side="left")
-            Slider(rw, var, 0, 255, command=cmd, width=240).pack(side="left", fill="x", expand=True)
+            Slider(rw, var, 0, 255, command=cmd, width=240, height=20).pack(side="left", fill="x", expand=True)
             vl = label(rw, "", fg=C["text"], width=6)
             vl.pack(side="left")
             if name == "PWR":
@@ -1589,6 +1704,18 @@ class App:
                 upd = (lambda v=var, l=vl: l.config(text=f"{int(v.get() / 2.55)}%"))
             trace(vl, var, upd)
             upd()
+
+        # --- decoder-hulp: statistiek, morsetabel, afkortingen
+        f, b, head = panel(left, "")
+        f.pack(fill="both", expand=True)
+        head.title.config(text=t("DECODER-HULP", "DECODER TOOLS"))
+        self.tool_btns = {}
+        for key, txt in (("abbr", t("Afkortingen", "Abbrev.")), ("morse", "Morse"), ("dec", "Decoder")):
+            bt = FlatButton(head, txt, command=lambda k=key: self._tool_tab(k), padx=8, pady=1, font=(UI, 8, "bold"))
+            bt.pack(side="right", padx=1)
+            self.tool_btns[key] = bt
+        self.tool_body = b
+        self._tool_tab(self.tool_tab)
 
         # ===== rechterkolom
         f, b, _ = panel(right)
@@ -1703,7 +1830,10 @@ class App:
 
         # ===== onderbalk
         bot = tk.Frame(r, bg=C["bg"])
-        bot.pack(fill="x", padx=14, pady=(0, 12))
+        # onderbalk krijgt altijd voorrang: eerst onderaan plaatsen, dan pas het hoofdgedeelte
+        main.pack_forget()
+        bot.pack(side="bottom", fill="x", padx=14, pady=(0, 12))
+        main.pack(fill="both", expand=True, padx=14, pady=(0, 8))
         f, b, _ = panel(bot)
         f.pack(side="left", fill="y")
         mr = tk.Frame(b, bg=C["panel"])
@@ -2112,6 +2242,21 @@ class App:
         self.txt.see("end")
 
     def _tick(self):
+        try:
+            self._tick_body()
+        except tk.TclError as e:
+            if "invalid command name" in str(e) or "application has been destroyed" in str(e):
+                return                               # venster wordt gesloten
+            log_error("gui", e)
+        except Exception as e:                       # de GUI-lus mag nooit stoppen
+            if not getattr(self, "_tick_err", False):
+                self._tick_err = True
+                log_error("gui", e)
+                self._set_status(self.t(f"interne fout: {e} (zie error.log)", f"internal error: {e} (see error.log)"),
+                                 C["red"])
+        self.root.after(40, self._tick)
+
+    def _tick_body(self):
         hl = False
         t = self.t
         try:
@@ -2154,6 +2299,10 @@ class App:
                     self.rf_var.set(item[1])
                 elif kind == "pwr":
                     self.pwr_var.set(item[1])
+                elif kind == "update":
+                    self.update_info = item[1]
+                    self._show_update_button()
+                    self._ask_update()
                 elif kind == "found":
                     if self.detecting and self.civ:
                         self._radio_found(item[1])
@@ -2214,6 +2363,8 @@ class App:
                     self.scope_title.config(text=hint, fg=C["amber"])
             else:
                 self.scope_title.config(text=base, fg=C["dim"])
+        self._audio_check(now)
+        self._tool_refresh(now)
         if self.audio:
             d = self.audio.decoder
             lv = min(1.0, d.level / 2)
@@ -2221,7 +2372,6 @@ class App:
             self.lvl.create_rectangle(0, 0, 90 * lv, 10, fill=C["acc"] if d.state else C["btnhi"], outline="")
             self.lvl.create_line(45, 0, 45, 10, fill=C["dim"])
             self.dwpm_lbl.config(text=f"{d.wpm:4.1f} wpm  ·  {d.bw:.0f} Hz")
-        self.root.after(40, self._tick)
 
     def _skim_refresh(self):
         sk = self.audio.skimmer if self.audio else None
@@ -2313,6 +2463,7 @@ class App:
                     self.civ.send(0x1C, b"\x00")
                 if self.poll_n % 5 == 0:
                     self.civ.send(0x03)
+                    self.civ.send(0x04)
             except Exception:
                 self._set_status(self.t("seriële fout", "serial error"), C["red"])
         self.root.after(200, self._poll)
@@ -2368,8 +2519,12 @@ class App:
     def set_mode(self, m):
         if self.civ:
             self.civ.send(0x06, bytes([m, self.filt]))
+            self.mode_code = m
+            self.mode = MODES.get(m, self.mode)
+            self._update_highlights()
             self.civ.send(0x04)
             self.civ.send(0x1A, b"\x03")
+            self.root.after(400, lambda: self.civ and self.civ.send(0x04))
 
     def set_filter(self, i):
         if self.civ:
@@ -2524,6 +2679,195 @@ class App:
         if call:
             webbrowser.open(f"https://www.qrz.com/db/{call}")
 
+    # ---------- update-controle
+    def check_update_async(self):
+        if not self.cfg.get("check_updates", True):
+            return
+
+        def work():
+            try:
+                info = json.loads(http_get(RELEASE_API).decode("utf-8"))
+                tag = info.get("tag_name", "")
+                if tag and version_tuple(tag) > version_tuple(APP_VERSION):
+                    self.gq.put(("update", {"version": tag.lstrip("vV"),
+                                            "url": info.get("html_url") or f"{REPO_URL}/releases/latest"}))
+            except Exception as e:
+                log_error("update-check", e)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_update_button(self):
+        if self.update_info and self.upd_btn.winfo_exists():
+            self.upd_btn.config(text="⬆ " + self.t(f"Nieuwe versie {self.update_info['version']}",
+                                                  f"New version {self.update_info['version']}"))
+            self.upd_btn.set_active(True, C["acc2"])
+            self.upd_btn.pack(side="left", padx=(8, 0))
+
+    def _ask_update(self):
+        v = self.update_info["version"]
+        if self.cfg.get("update_asked") == v:
+            return
+        self.cfg["update_asked"] = v
+        self._save_cfg()
+        if messagebox.askyesno(self.t("Update beschikbaar", "Update available"), self.t(
+                f"Er is een nieuwe versie van CW Station beschikbaar: {v}\n(jij hebt {APP_VERSION}).\n\n"
+                "Wil je de downloadpagina openen?",
+                f"A new version of CW Station is available: {v}\n(you have {APP_VERSION}).\n\n"
+                "Open the download page?"), parent=self.root):
+            self._open_update()
+
+    def _open_update(self):
+        if self.update_info:
+            webbrowser.open(self.update_info["url"])
+
+    # ---------- audio-diagnose
+    def _audio_check(self, now):
+        a = self.audio
+        if not a:
+            self._silent_since = None
+            return
+        if a.error and not getattr(self, "_err_shown", False):
+            self._err_shown = True
+            self._set_status(self.t(f"audiofout: {a.error} (zie error.log)", f"audio error: {a.error} (see error.log)"),
+                             C["red"])
+        if a.blocks == 0 or a.level_db < -100:
+            if self._silent_since is None:
+                self._silent_since = now
+            elif now - self._silent_since > 3 and not getattr(self, "_silence_shown", False):
+                self._silence_shown = True
+                self._set_status(self.t(
+                    "Audio: geen geluid ontvangen – klik hier voor Windows-microfoontoegang",
+                    "Audio: no sound received – click here for Windows microphone access"), C["red"])
+                self._status_action = "mic"
+        else:
+            self._silent_since = None
+            if getattr(self, "_silence_shown", False):
+                self._silence_shown = False
+                self._status_action = None
+                self._set_status(self.t("Audio ontvangen", "Audio received"), C["green"])
+
+    def _status_click(self, ev=None):
+        if getattr(self, "_status_action", None) == "mic":
+            webbrowser.open("ms-settings:privacy-microphone")
+
+    # ---------- decoder-hulp (linksonder)
+    ABBR = [("73", "groeten", "best regards"), ("88", "liefs", "love and kisses"), ("AGN", "nog eens", "again"),
+            ("ANT", "antenne", "antenna"), ("BK", "onderbreken", "break"), ("CFM", "bevestig", "confirm"),
+            ("CQ", "algemene oproep", "calling any station"), ("CUL", "tot later", "see you later"),
+            ("DE", "van", "from"), ("DR", "beste", "dear"), ("ES", "en", "and"), ("FB", "prima", "fine business"),
+            ("FER", "voor", "for"), ("GA", "goedemiddag", "good afternoon"), ("GE", "goedenavond", "good evening"),
+            ("GM", "goedemorgen", "good morning"), ("GL", "succes", "good luck"), ("HI", "lach", "laughter"),
+            ("HR", "hier", "here"), ("HW?", "hoe ontvangen?", "how copy?"), ("K", "ga je gang", "over"),
+            ("KN", "alleen jij", "over, only you"), ("NR", "nummer", "number"), ("OM", "beste man", "old man"),
+            ("OP", "operator", "operator"), ("PSE", "alsjeblieft", "please"), ("PWR", "vermogen", "power"),
+            ("QRL?", "is de frequentie vrij?", "is the frequency busy?"), ("QRM", "storing (station)", "interference"),
+            ("QRN", "atmosferische ruis", "static"), ("QRP", "laag vermogen", "low power"),
+            ("QRQ", "sneller seinen", "send faster"), ("QRS", "langzamer seinen", "send slower"),
+            ("QRZ?", "wie roept mij?", "who is calling me?"), ("QSB", "fading", "fading"),
+            ("QSL", "bevestiging", "confirmation"), ("QSO", "verbinding", "contact"),
+            ("QSY", "andere frequentie", "change frequency"), ("QTH", "locatie", "location"),
+            ("R", "ontvangen", "received"), ("RIG", "apparatuur", "equipment"), ("RST", "rapport", "report"),
+            ("SK", "einde verbinding", "end of contact"), ("TNX/TU", "bedankt", "thanks"),
+            ("UR", "je / jouw", "your / you're"), ("VY", "zeer", "very"), ("WX", "weer", "weather"),
+            ("5NN", "599", "599")]
+
+    def _tool_tab(self, key):
+        self.tool_tab = key
+        for k, bt in self.tool_btns.items():
+            bt.set_active(k == key)
+        for w in self.tool_body.winfo_children():
+            w.destroy()
+        b = self.tool_body
+        t = self.t
+        if key == "dec":
+            top = tk.Frame(b, bg=C["panel"])
+            top.pack(fill="x")
+            self.td_wpm = tk.Label(top, text="--", bg=C["panel"], fg=C["acc"], font=(DIGIT, 22, "bold"), width=3)
+            self.td_wpm.pack(side="left")
+            label(top, "WPM", font=(UI, 9, "bold")).pack(side="left", anchor="s", pady=(0, 6))
+            self.td_code = tk.Label(top, text="", bg=C["panel"], fg=C["text"], font=(MONO, 16, "bold"), width=7,
+                                    anchor="e")
+            self.td_code.pack(side="right")
+            grid = tk.Frame(b, bg=C["panel"])
+            grid.pack(fill="x", pady=(0, 4))
+            self.td = {}
+            for i, (k, nl, en) in enumerate((("snr", "Signaal/ruis", "SNR"), ("dot", "Punt / streep", "Dit / dah"),
+                                             ("wt", "Verhouding", "Weight"), ("gap", "Letter- / woordspatie", "Char / word gap"))):
+                label(grid, t(nl, en), font=(UI, 8)).grid(row=i, column=0, sticky="w")
+                v = label(grid, "--", fg=C["text"], font=(UI, 9, "bold"))
+                v.grid(row=i, column=1, sticky="e", padx=(10, 0))
+                self.td[k] = v
+            grid.columnconfigure(1, weight=1)
+            bar = tk.Frame(b, bg=C["panel"])
+            bar.pack(fill="x")
+            FlatButton(bar, t("Neem snelheid over", "Match speed"), command=self._match_speed, padx=8, pady=3,
+                       font=(UI, 9, "bold")).pack(side="left")
+            FlatButton(bar, t("Reset decoder", "Reset decoder"), command=self._reset_decoder, padx=8, pady=3,
+                       font=(UI, 9, "bold")).pack(side="left", padx=6)
+        elif key == "morse":
+            items = [(c, MORSE[c]) for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"] + \
+                    [(c, MORSE[c]) for c in "./?=,"] + [("AR", ".-.-."), ("SK", "...-.-"), ("KN", "-.--.")]
+            g = tk.Frame(b, bg=C["panel"])
+            g.pack(fill="both", expand=True)
+            cols = 6
+            rows = (len(items) + cols - 1) // cols
+            for i, (ch, code) in enumerate(items):
+                r_, c_ = i % rows, i // rows
+                cell = tk.Frame(g, bg=C["panel"])
+                cell.grid(row=r_, column=c_, sticky="w", padx=(0, 6))
+                tk.Label(cell, text=ch, bg=C["panel"], fg=C["acc"], font=(MONO, 9, "bold"), width=2,
+                         anchor="w").pack(side="left")
+                tk.Label(cell, text=code.replace(".", "·").replace("-", "–"), bg=C["panel"], fg=C["text"],
+                         font=(MONO, 9), anchor="w").pack(side="left")
+        else:
+            tf = tk.Frame(b, bg=C["panel"])
+            tf.pack(fill="both", expand=True)
+            txt = tk.Text(tf, bg=C["panel"], fg=C["text"], relief="flat", font=(UI, 9), wrap="none",
+                          height=8, highlightthickness=0, padx=2)
+            sb = ttk.Scrollbar(tf, orient="vertical", command=txt.yview)
+            txt.config(yscrollcommand=sb.set)
+            sb.pack(side="right", fill="y")
+            txt.pack(side="left", fill="both", expand=True)
+            txt.tag_config("k", foreground=C["acc"], font=(MONO, 9, "bold"))
+            for ab, nl, en in self.ABBR:
+                txt.insert("end", f"{ab:<7}", "k")
+                txt.insert("end", (nl if self.lang == "nl" else en) + "\n")
+            txt.config(state="disabled")
+        b.update_idletasks()
+
+    def _tool_refresh(self, now):
+        if self.tool_tab != "dec" or now - getattr(self, "_td_t", 0) < 0.3:
+            return
+        self._td_t = now
+        if not getattr(self, "td_wpm", None) or not self.td_wpm.winfo_exists():
+            return
+        if not self.audio:
+            self.td_wpm.config(text="--")
+            return
+        d = self.audio.decoder
+        self.td_wpm.config(text=f"{d.wpm:.0f}")
+        self.td_code.config(text=(d.code or "").replace(".", "·").replace("-", "–"))
+        if d.noise > 1e-7 and d.peak > d.noise:
+            snr = min(20 * math.log10(d.peak / d.noise), 60)
+            self.td["snr"].config(text=f"{snr:.0f} dB")
+        else:
+            self.td["snr"].config(text="--")
+        self.td["dot"].config(text=f"{d.dot * 1000:.0f} / {d.dash * 1000:.0f} ms")
+        self.td["wt"].config(text=f"1 : {d.dash / max(d.dot, 1e-3):.1f}")
+        self.td["gap"].config(text=f"{d.cg / max(d.dot, 1e-3):.1f} / {d.wg / max(d.dot, 1e-3):.1f} " +
+                              self.t("punten", "dits"))
+
+    def _match_speed(self):
+        if self.audio:
+            self.wpm_var.set(int(min(max(round(self.audio.decoder.wpm), 6), 48)))
+            self.send_wpm()
+
+    def _reset_decoder(self):
+        if self.audio:
+            d = self.audio.decoder
+            dit = 1.2 / max(self.wpm_var.get(), 6)
+            d.dot, d.dash, d.ie, d.cg, d.wg = dit, 3 * dit, dit, 3 * dit, 7 * dit
+            d.marks, d.gaps, d.code = [], [], ""
+
     # ---------- enquête
     def open_survey(self):
         self.cfg["survey_asked"] = True
@@ -2644,7 +2988,9 @@ class App:
                 (t("Mijn call", "My call"), entry(b, call_v, 14)),
                 (t("Mijn naam", "My name"), entry(b, name_v, 14)),
                 (t("Mijn QTH", "My QTH"), entry(b, qth_v, 14)),
-                (t("CQ-herhaling (s)", "CQ repeat (s)"), entry(b, cq_v, 5))]
+                (t("CQ-herhaling (s)", "CQ repeat (s)"), entry(b, cq_v, 5)),
+                (t("Updates", "Updates"), FlatButton(b, t("Automatisch controleren", "Check automatically"),
+                                                     var=self.upd_var, padx=8, pady=2, font=(UI, 9, "bold")))]
         for i, (txt_, wd) in enumerate(grid):
             label(b, txt_, font=(UI, 10)).grid(row=i // 2, column=(i % 2) * 2, sticky="w", padx=(0, 8), pady=4)
             wd.grid(row=i // 2, column=(i % 2) * 2 + 1, sticky="w", padx=(0, 24), pady=4)
@@ -2672,6 +3018,7 @@ class App:
             except ValueError:
                 cq = 8
             theme = next((k for k in THEMES if tname(k) == theme_v.get()), "Amber")
+            self.cfg["check_updates"] = bool(self.upd_var.get())
             self.cfg.update(theme=theme, mycall=call_v.get().strip().upper(),
                             myname=name_v.get().strip(), myqth=qth_v.get().strip(), cq_repeat=cq, lang=self.lang)
             for k, (lv, tv) in mvars.items():
@@ -2707,6 +3054,7 @@ def main():
         root.after(600, app.show_settings)
     else:
         root.after(4000, app.maybe_ask_survey)
+    root.after(3000, app.check_update_async)
     root.mainloop()
 
 

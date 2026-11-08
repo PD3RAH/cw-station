@@ -1,6 +1,6 @@
 # CW Station – User Manual
 
-*Version 2.2 · for the Icom IC-7300 and IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
+*Version 2.3 · for the Icom IC-7300 and IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
 
 ![CW Station](screenshot.png)
 
@@ -107,6 +107,7 @@ The program remembers these choices for next time.
 | **Tuning knob** | Tune by dragging or scrolling. Next to it are the RX/TX lamp and the step size |
 | **S-meter and TX meters** | Signal strength; while transmitting also PO, SWR, ALC, Id and Vd |
 | **AF / RF / PWR** | Volume, RF gain and transmit power of the radio |
+| **Decoder tools** | Speed and quality of the received signal, a Morse table and CW abbreviations |
 | **Function bar** | FIL1–3, IF width, NB, NR, P.AMP, ATT, ATU, TUNE and SCOPE |
 | **Spectrum scope** | The radio's scope as spectrum and waterfall |
 | **Audio waterfall** | The audio from the radio (0–3 kHz) with the decoder settings |
@@ -143,6 +144,14 @@ The program remembers these choices for next time.
 
 - Click a row: the main window decodes that station.
 - Double-click a row: the callsign goes into the **Call** field.
+
+**Decoder tools** (bottom left) has three tabs:
+
+- **Decoder** shows the measured **speed** (large), the **signal-to-noise ratio**, the dit and dah lengths, the **weight** between them (normally 1 : 3) and the character and word gaps. At the top right you see the incoming character live (for example `–·–·`).
+  - **Match speed** sets your own keyer speed to that of the other station.
+  - **Reset decoder** makes the decoder start over, for example when you move to a station with a very different speed.
+- **Morse** is a table of all letters, digits, punctuation and prosigns.
+- **Abbrev.** is a list of the most common CW abbreviations and Q-codes, with their meaning.
 
 **Taking over callsigns.** Callsigns in the received text are underlined. Click one and it goes into the **Call** field. **QRZ** opens the QRZ.com page for that station.
 
@@ -236,6 +245,7 @@ Open **⚙ Settings**:
 | Radio transmits as soon as you connect | Set USB SEND and USB Keying (CW) to **OFF** in the radio's menu |
 | Scope stays black | IC-7300: *CI-V USB Port = Unlink*, 115200 baud. Both models: scope on at the radio |
 | No audio or empty waterfall | Allow microphone access in Windows; choose **USB Audio CODEC**; raise *ACC/USB AF Output Level* |
+| Message *"Audio: no sound received"* | Windows is blocking the sound card, or the radio sends no audio. Click the message to open the Windows microphone settings and allow access for desktop apps |
 | Decoder prints many E, T and I | Raise the squelch; click exactly on the signal; use BW AUTO |
 | Decoder misses weak signals | Lower the squelch; use a narrower IF filter (250 or 500) |
 | Sending does nothing | Mode must be CW; BK-IN on; your callsign entered in Settings |
@@ -245,7 +255,8 @@ Open **⚙ Settings**:
 ## 15. Files, updating and uninstalling
 
 - **Settings and logbook**: `%APPDATA%\CWStation\` (`settings.json` and `logbook.adi`). These are kept when you update or uninstall.
-- **Update**: run the new **Setup** or the small **Update** over the old version.
+- **Update**: at start-up CW Station checks whether a new version is available. If so, you get a message and a **⬆ New version** button in the header that opens the download page. Run the new **Setup** or the small **Update** over the old version. You can turn the check off in Settings.
+- **Errors**: internal errors are saved in `%APPDATA%\CWStation\error.log`. Please include this file when you report a problem.
 - **Uninstall**: via *Windows Settings → Apps → CW Station*.
 - **Survey**: use the **Survey** button to say what works well and what could be better. Your answers go straight to the author.
 

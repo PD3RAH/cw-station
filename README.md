@@ -28,6 +28,8 @@ waterfall, like an SDR panadapter.
 - **Logbook**: log a QSO with Ctrl+L and export it as ADIF. Click a callsign in the
   received text to take it over, and look it up on QRZ.com with one click.
 - English and Dutch interface, and 6 colour themes. Language and theme switch instantly.
+- **Decoder tools**: live speed/SNR/weight, Match speed, Morse table and CW abbreviations.
+- **Update notification** when a new release is available on GitHub.
 - **Survey** button: tell the author what works and what does not (Dutch/English web form).
 
 **Manual:** [English](docs/MANUAL.md) · [Nederlands](docs/HANDLEIDING.md). The manual is
@@ -123,6 +125,8 @@ spectrumscope van de radio als waterval, net als een SDR-panadapter.
 - **Logboek**: log een QSO met Ctrl+L en exporteer het als ADIF. Klik op een call in de
   ontvangen tekst om hem over te nemen, en zoek hem met één klik op bij QRZ.com.
 - Nederlandse en Engelse interface en 6 kleurthema's. Taal en thema wisselen direct.
+- **Decoder-hulp**: snelheid, signaal-ruis en verhouding live, Neem snelheid over, morsetabel en CW-afkortingen.
+- **Updatemelding** als er een nieuwe versie op GitHub staat.
 - Knop **Enquête**: laat weten wat goed werkt en wat beter kan (webformulier, NL/EN).
 
 **Handleiding:** [Nederlands](docs/HANDLEIDING.md) · [English](docs/MANUAL.md). De

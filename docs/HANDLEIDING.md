@@ -1,6 +1,6 @@
 # CW Station – Handleiding
 
-*Versie 2.2 · voor de Icom IC-7300 en IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
+*Versie 2.3 · voor de Icom IC-7300 en IC-7300MK2 · © 2026 Richard A. Hendriksen (PD3RAH)*
 
 ![CW Station](screenshot_nl.png)
 
@@ -107,6 +107,7 @@ Het programma onthoudt deze keuzes voor de volgende keer.
 | **Afstemknop** | Afstemmen met slepen of scrollen. Ernaast staan het RX/TX-lampje en de stapgrootte |
 | **S-meter en zendmeters** | Signaalsterkte; tijdens zenden ook PO, SWR, ALC, Id en Vd |
 | **AF / RF / PWR** | Volume, RF-gain en zendvermogen van de radio |
+| **Decoder-hulp** | Snelheid en kwaliteit van het ontvangen signaal, een morsetabel en CW-afkortingen |
 | **Functiebalk** | FIL1–3, IF-breedte, NB, NR, P.AMP, ATT, ATU, TUNE en SCOPE |
 | **Spectrumscope** | De scope van de radio als spectrum en waterval |
 | **Audio-waterval** | De audio uit de radio (0–3 kHz) met decoderinstellingen |
@@ -143,6 +144,14 @@ Het programma onthoudt deze keuzes voor de volgende keer.
 
 - Klik op een regel: het hoofdvenster gaat dat station decoderen.
 - Dubbelklik op een regel: de call komt in het veld **Call**.
+
+**Decoder-hulp** (linksonder) heeft drie tabbladen:
+
+- **Decoder** toont de gemeten **snelheid** (groot), de **signaal-ruisverhouding**, de lengte van punt en streep, de **verhouding** daartussen (normaal 1 : 3) en de letter- en woordspatie. Rechtsboven zie je live het teken dat binnenkomt (bijvoorbeeld `–·–·`).
+  - **Neem snelheid over** zet je eigen seinsnelheid gelijk aan die van het tegenstation.
+  - **Reset decoder** laat de decoder opnieuw beginnen, bijvoorbeeld als je naar een station met een heel andere snelheid gaat.
+- **Morse** is een tabel met alle letters, cijfers, leestekens en prosigns.
+- **Afkortingen** is een lijst met de meest gebruikte CW-afkortingen en Q-codes, met hun betekenis.
 
 **Calls overnemen.** Calls in de ontvangen tekst zijn onderstreept. Klik erop en de call staat in het veld **Call**. Met **QRZ** open je de QRZ.com-pagina van dat station.
 
@@ -236,6 +245,7 @@ Open **⚙ Instellingen**:
 | Radio zendt meteen bij verbinden | USB SEND en USB Keying (CW) op **OFF** zetten in het menu van de radio |
 | Scope blijft zwart | IC-7300: *CI-V USB Port = Unlink*, 115200 baud. Beide modellen: scope aan op de radio |
 | Geen audio of lege waterval | Microfoontoegang in Windows aanzetten; **USB Audio CODEC** kiezen; *ACC/USB AF Output Level* hoger zetten |
+| Melding *"Audio: geen geluid ontvangen"* | Windows blokkeert de geluidskaart of de radio stuurt geen audio. Klik op de melding om de microfoon-instellingen van Windows te openen en zet de toegang voor desktop-apps aan |
 | Decoder geeft veel E, T en I | Squelch hoger zetten; precies op het signaal klikken; BW AUTO gebruiken |
 | Decoder mist zwakke signalen | Squelch lager zetten; IF-filter smaller zetten (250 of 500) |
 | Zenden doet niets | Mode moet CW zijn; BK-IN aan; je call ingevuld bij Instellingen |
@@ -245,7 +255,8 @@ Open **⚙ Instellingen**:
 ## 15. Bestanden, bijwerken en verwijderen
 
 - **Instellingen en logboek**: `%APPDATA%\CWStation\` (`settings.json` en `logbook.adi`). Deze blijven bewaard bij bijwerken en verwijderen.
-- **Bijwerken**: start de nieuwe **Setup** of de kleine **Update** over de oude versie heen.
+- **Bijwerken**: bij het starten kijkt CW Station of er een nieuwe versie is. Is die er, dan verschijnt een melding en de knop **⬆ Nieuwe versie** in de kopbalk; die opent de downloadpagina. Start daar de nieuwe **Setup** of de kleine **Update** over de oude versie heen. Het controleren zet je uit bij Instellingen.
+- **Fouten**: interne fouten worden opgeslagen in `%APPDATA%\CWStation\error.log`. Stuur dat bestand mee als je een probleem meldt.
 - **Verwijderen**: via *Windows Instellingen → Apps → CW Station*.
 - **Enquête**: met de knop **Enquête** laat je weten wat goed werkt en wat beter kan. Je antwoorden gaan rechtstreeks naar de maker.
 

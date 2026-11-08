@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0 – 2026-11-08
+- Update notification: checks GitHub releases at start-up (WinHTTP, no OpenSSL needed); can be turned off
+- Decoder tools panel: speed, SNR, dit/dah, weight and gaps, live character, Match speed, Reset decoder;
+  Morse table; CW abbreviations and Q-codes (NL/EN)
+- Audio diagnostics: warns when no sound arrives (Windows microphone privacy), errors logged to error.log
+- Mode buttons light up immediately and the mode is polled every second
+- GUI loop can no longer stop on an unexpected error
+
 ## 2.2.0 – 2026-11-08
 - IC-7300MK2 support: automatic radio detection (CI-V 94h / B6h) via transceiver ID
 - Digital TX meters: PO (W), SWR, ALC and Id with peak hold; Vd supply voltage
