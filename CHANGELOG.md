@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.0 – 2026-11-08
+- Responsive interface: fonts, knob, meters, waterfalls and sliders scale with the window
+  (small laptop screens up to 1440p and larger); re-layout after resizing
+- Clocks and frequency use fixed-width digits, so they no longer shift
+
 ## 2.3.1 – 2026-11-08
 - Fix: waterfall crashed ("index out of bounds") when the window width changed by a pixel on wide screens.
   In versions before 2.3.0 this stopped all screen updates, which looked like the audio was not working.

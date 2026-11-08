@@ -39,7 +39,7 @@ except (ImportError, OSError):
 
 # ----------------------------------------------------------------- settings / instellingen
 APP_NAME = "CW Station"
-APP_VERSION = "2.3.1"
+APP_VERSION = "2.4.0"
 SURVEY_URL = "https://www.pd3rah.nl/cwstation/enquete.php"
 REPO_URL = "https://github.com/PD3RAH/cw-station"
 RELEASE_API = "https://api.github.com/repos/PD3RAH/cw-station/releases/latest"
@@ -912,7 +912,7 @@ class Waterfall:
                 x = self.width * i / 10
                 c.create_line(x, 0, x, self.hs, fill=_mix(C["scr"], C["border"], 0.6), tags="ov")
                 c.create_text(x + 3, 3, anchor="nw", text=self.label_fn(i / 10),
-                              fill=C["dim"], font=("Consolas", 8), tags="ov")
+                              fill=C["dim"], font=("Consolas", S(8)), tags="ov")
         # spectrum: gevulde vorm + lijn
         if self.row is not None:
             n = min(len(self.row), self.width)
@@ -934,7 +934,7 @@ class Waterfall:
         for frac, text, color in self.labels:
             x = frac * self.width
             tid = c.create_text(x + 4, self.hs + 4, anchor="nw", text=text, fill="#ffffff",
-                                font=("Segoe UI", 8, "bold"), tags="ov")
+                                font=("Segoe UI", S(8), "bold"), tags="ov")
             bb = c.bbox(tid)
             if bb:
                 r = c.create_rectangle(bb[0] - 3, bb[1] - 1, bb[2] + 3, bb[3] + 1, fill=color,
@@ -960,6 +960,17 @@ THEME_NL = {"Amber": "Amber", "Turquoise": "Turquoise", "Green": "Groen", "Ice b
 UI = "Segoe UI"
 MONO = "Consolas"
 DIGIT = "Bahnschrift"
+SCALE = 1.0          # wordt aangepast aan de venstergrootte (responsive)
+
+
+def S(v):
+    """Pixel- of puntmaat schalen met de huidige UI-schaal."""
+    return max(1, int(round(v * SCALE)))
+
+
+def scale_for(w, h):
+    """Schaal bepalen uit de beschikbare venstergrootte (ontwerpgrootte 1560 x 1000)."""
+    return round(min(max(min(w / 1560.0, h / 1000.0), 0.66), 1.7), 2)
 
 
 def _mix(c1, c2, f):
@@ -990,7 +1001,7 @@ def panel(parent, title=None):
         head = tk.Frame(f, bg=C["panel"])
         head.pack(fill="x", padx=12, pady=(8, 0))
         tk.Frame(head, bg=C["acc"], width=3, height=12).pack(side="left", padx=(0, 7))
-        lbl = tk.Label(head, text=title, bg=C["panel"], fg=C["dim"], font=(UI, 9, "bold"))
+        lbl = tk.Label(head, text=title, bg=C["panel"], fg=C["dim"], font=(UI, S(9), "bold"))
         lbl.pack(side="left")
         head.title = lbl
     body = tk.Frame(f, bg=C["panel"])
@@ -1000,12 +1011,12 @@ def panel(parent, title=None):
 
 def label(parent, text="", fg=None, font=None, bg=None, **kw):
     return tk.Label(parent, text=text, bg=bg or parent.cget("bg"), fg=fg or C["dim"],
-                    font=font or (UI, 9), **kw)
+                    font=font or (UI, S(9)), **kw)
 
 
 def entry(parent, var, width=8, font=None):
     return tk.Entry(parent, textvariable=var, width=width, bg=C["panel2"], fg=C["text"],
-                    insertbackground=C["acc"], relief="flat", font=font or (UI, 10),
+                    insertbackground=C["acc"], relief="flat", font=font or (UI, S(10)),
                     highlightthickness=1, highlightbackground=C["border"], highlightcolor=C["acc"])
 
 
@@ -1014,7 +1025,7 @@ class FlatButton(tk.Canvas):
 
     def __init__(self, parent, text, command=None, var=None, width=None, font=None,
                  accent=None, padx=12, pady=5, radius=8):
-        self.font = tkfont.Font(font=font or (UI, 10, "bold"))
+        self.font = tkfont.Font(font=font or (UI, S(10), "bold"))
         self._text = text
         self.padx, self.pady, self.radius = padx, pady, radius
         self.minw = (width or 0) * self.font.measure("0")
@@ -1129,9 +1140,11 @@ class Slider(tk.Canvas):
         f = (v - self.lo) / (self.hi - self.lo)
         y = self.h // 2
         x = 8 + f * (self.w - 16)
-        self.create_line(8, y, self.w - 8, y, fill=C["btn"], width=4, capstyle="round")
-        self.create_line(8, y, x, y, fill=C["acc"], width=4, capstyle="round")
-        self.create_oval(x - 7, y - 7, x + 7, y + 7, fill=C["text"], outline=C["acc"], width=2)
+        k = max(5, int(self.h * 0.33))
+        lw = max(3, int(self.h * 0.18))
+        self.create_line(8, y, self.w - 8, y, fill=C["btn"], width=lw, capstyle="round")
+        self.create_line(8, y, x, y, fill=C["acc"], width=lw, capstyle="round")
+        self.create_oval(x - k, y - k, x + k, y + k, fill=C["text"], outline=C["acc"], width=2)
 
 
 class Knob(tk.Canvas):
@@ -1240,20 +1253,21 @@ class BarMeter(tk.Canvas):
             ("Id", 0, 25, (5, 10, 15, 20, 25), "A")]
 
     def __init__(self, parent, w=360):
-        self.rh = 21
-        super().__init__(parent, width=w, height=self.rh * len(self.ROWS) + 4,
+        self.rh = S(21)
+        super().__init__(parent, width=w, height=self.rh * len(self.ROWS) + S(4),
                          bg=_mix(C["scr"], C["panel"], 0.5), highlightthickness=0)
         self.w = w
         self.vals = {r[0]: None for r in self.ROWS}
         self.peak = {r[0]: 0.0 for r in self.ROWS}
-        self.x0, self.x1 = 44, w - 74
+        self.x0, self.x1 = S(44), w - S(74)
+        q = self.rh / 21.0                        # schaal binnen een rij
         for i, (name, lo, hi, ticks, unit) in enumerate(self.ROWS):
-            y = 4 + i * self.rh
-            self.create_text(10, y + 11, text=name, anchor="w", fill=C["acc"], font=(UI, 9, "bold"))
-            self.create_rectangle(self.x0, y + 5, self.x1, y + 17, fill=C["scr"], outline=C["border"])
+            y = S(4) + i * self.rh
+            self.create_text(S(10), y + 11 * q, text=name, anchor="w", fill=C["acc"], font=(UI, S(9), "bold"))
+            self.create_rectangle(self.x0, y + 5 * q, self.x1, y + 17 * q, fill=C["scr"], outline=C["border"])
             for tk_ in ticks:
                 x = self.x0 + (tk_ - lo) / (hi - lo) * (self.x1 - self.x0)
-                self.create_line(x, y + 17, x, y + 21, fill=C["dim"])
+                self.create_line(x, y + 17 * q, x, y + 21 * q, fill=C["dim"])
 
 
     def set(self, name, v):
@@ -1261,8 +1275,9 @@ class BarMeter(tk.Canvas):
 
     def draw(self):
         self.delete("dyn")
+        q = self.rh / 21.0
         for i, (name, lo, hi, ticks, unit) in enumerate(self.ROWS):
-            y = 4 + i * self.rh
+            y = S(4) + i * self.rh
             v = self.vals[name]
             pk = self.peak[name]
             if v is not None:
@@ -1279,12 +1294,12 @@ class BarMeter(tk.Canvas):
                     col = C["amber"]
                 elif name == "ALC" and v > 120 * 0.9:
                     col = C["red"]
-                self.create_rectangle(self.x0 + 1, y + 6, self.x0 + 1 + f * (self.x1 - self.x0 - 2), y + 16,
+                self.create_rectangle(self.x0 + 1, y + 6 * q, self.x0 + 1 + f * (self.x1 - self.x0 - 2), y + 16 * q,
                                       fill=col, outline="", tags="dyn")
             fp = min(max((pk - lo) / (hi - lo), 0), 1)
             if fp > 0.005:
                 xp = self.x0 + fp * (self.x1 - self.x0)
-                self.create_line(xp, y + 5, xp, y + 17, fill="#ffffff", width=2, tags="dyn")
+                self.create_line(xp, y + 5 * q, xp, y + 17 * q, fill="#ffffff", width=2, tags="dyn")
             if v is None:
                 txt = "--"
             elif name == "SWR":
@@ -1295,8 +1310,8 @@ class BarMeter(tk.Canvas):
                 txt = f"{v:.1f} A"
             else:
                 txt = f"{v:.0f} {unit}"
-            self.create_text(self.w - 10, y + 11, text=txt, anchor="e", fill=C["text"],
-                             font=(DIGIT, 12, "bold"), tags="dyn")
+            self.create_text(self.w - S(10), y + 11 * q, text=txt, anchor="e", fill=C["text"],
+                             font=(DIGIT, S(12), "bold"), tags="dyn")
 
 
 def _interp(v, pts):
@@ -1323,7 +1338,7 @@ class SMeter(tk.Canvas):
     def __init__(self, parent, w=360, h=160, title="SIGNAL"):
         super().__init__(parent, width=w, height=h, bg=_mix(C["scr"], C["panel"], 0.5), highlightthickness=0)
         self.w, self.h = w, h
-        self.cx, self.cy, self.r = w / 2, h - 10, min(w / 2 - 40, h - 20)
+        self.cx, self.cy, self.r = w / 2, h - S(10), min(w / 2 - S(40), h - S(20))
         self.val = 0.0
         self.target = 0.0
         self.title = title
@@ -1342,12 +1357,12 @@ class SMeter(tk.Canvas):
             self.create_line(x1, y1, x2, y2, fill=col, width=5)
         marks = [(i * 120 / 9, str(i)) for i in (1, 3, 5, 7, 9)] + [(160, "+20"), (201, "+40"), (241, "+60")]
         for raw, t in marks:
-            x1, y1 = self._xy(raw, r - 4)
-            x2, y2 = self._xy(raw, r - 12)
+            x1, y1 = self._xy(raw, r - S(4))
+            x2, y2 = self._xy(raw, r - S(12))
             self.create_line(x1, y1, x2, y2, fill=C["text"], width=2)
-            tx, ty = self._xy(raw, r - 23)
-            self.create_text(tx, ty, text=t, fill=C["red"] if "+" in t else C["text"], font=(UI, 8))
-        self.create_text(12, 10, text=self.title, anchor="nw", fill=C["acc"], font=(UI, 9, "bold"))
+            tx, ty = self._xy(raw, r - S(23))
+            self.create_text(tx, ty, text=t, fill=C["red"] if "+" in t else C["text"], font=(UI, S(8)))
+        self.create_text(S(12), S(10), text=self.title, anchor="nw", fill=C["acc"], font=(UI, S(9), "bold"))
 
     @staticmethod
     def s_text(raw):
@@ -1365,11 +1380,11 @@ class SMeter(tk.Canvas):
         self.create_line(self.cx, self.cy, x, y, fill="#f2f6f8", width=2, tags="dyn")
         self.create_oval(self.cx - 6, self.cy - 6, self.cx + 6, self.cy + 6, fill=C["btn"],
                          outline=C["acc"], tags="dyn")
-        self.create_text(self.w - 12, 10, text=self.s_text(self.target), anchor="ne",
-                         fill=C["text"], font=(UI, 13, "bold"), tags="dyn")
+        self.create_text(self.w - S(12), S(10), text=self.s_text(self.target), anchor="ne",
+                         fill=C["text"], font=(UI, S(13), "bold"), tags="dyn")
         if swr_text:
-            self.create_text(self.w - 12, 32, text=swr_text, anchor="ne", fill=C["acc2"],
-                             font=(UI, 10, "bold"), tags="dyn")
+            self.create_text(self.w - S(12), S(32), text=swr_text, anchor="ne", fill=C["acc2"],
+                             font=(UI, S(10), "bold"), tags="dyn")
 
 
 def swr_from_raw(v):
@@ -1464,8 +1479,16 @@ class App:
         st_cfg = self.cfg.get("step", 10)
         self.step_idx = self.STEPS.index(st_cfg) if st_cfg in self.STEPS else 0
         self._init_vars()
+        global SCALE
+        try:
+            sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
+            SCALE = scale_for(sw * 0.98, sh * 0.90)
+        except tk.TclError:
+            pass
         self._style()
         self._build()
+        self._resize_job = None
+        root.bind("<Configure>", self._on_root_configure, add="+")
         self.root.after(40, self._tick)
         self.root.after(250, self._poll)
         self.root.after(500, self._clock)
@@ -1553,10 +1576,10 @@ class App:
         st.configure("Vertical.TScrollbar", background=C["btn"], troughcolor=C["panel"],
                      bordercolor=C["panel"], arrowcolor=C["acc"])
         st.configure("Treeview", background=C["scr"], fieldbackground=C["scr"], foreground=C["text"],
-                     rowheight=24, borderwidth=0, font=(UI, 10))
+                     rowheight=S(24), borderwidth=0, font=(UI, S(10)))
         st.map("Treeview", background=[("selected", C["btnhi"])], foreground=[("selected", C["acc"])])
         st.configure("Treeview.Heading", background=C["panel2"], foreground=C["dim"], borderwidth=0,
-                     font=(UI, 9, "bold"), relief="flat")
+                     font=(UI, S(9), "bold"), relief="flat")
         st.map("Treeview.Heading", background=[("active", C["btn"])])
         r.option_add("*TCombobox*Listbox.background", C["panel2"])
         r.option_add("*TCombobox*Listbox.foreground", C["text"])
@@ -1572,27 +1595,27 @@ class App:
         # ===== kopbalk
         hdr = tk.Frame(r, bg=C["bg"])
         hdr.pack(fill="x", padx=14, pady=(10, 6))
-        logo = tk.Canvas(hdr, width=54, height=54, bg=C["bg"], highlightthickness=0)
+        logo = tk.Canvas(hdr, width=S(54), height=S(54), bg=C["bg"], highlightthickness=0)
         logo.pack(side="left")
-        logo.create_oval(2, 2, 52, 52, outline=C["acc"], width=2, fill=C["panel"])
-        logo.create_text(27, 22, text="CW", fill=C["acc"], font=(UI, 14, "bold"))
+        logo.create_oval(S(2), S(2), S(52), S(52), outline=C["acc"], width=2, fill=C["panel"])
+        logo.create_text(S(27), S(22), text="CW", fill=C["acc"], font=(UI, S(14), "bold"))
         for x0, x1 in ((12, 17), (21, 32), (36, 41)):
-            logo.create_rectangle(x0, 36, x1, 40, fill=C["acc2"], outline="")
+            logo.create_rectangle(S(x0), S(36), S(x1), S(40), fill=C["acc2"], outline="")
         tt = tk.Frame(hdr, bg=C["bg"])
         tt.pack(side="left", padx=10)
-        tk.Label(tt, text=APP_NAME, bg=C["bg"], fg=C["text"], font=(UI, 22, "bold")).pack(anchor="w")
+        tk.Label(tt, text=APP_NAME, bg=C["bg"], fg=C["text"], font=(UI, S(22), "bold")).pack(anchor="w")
         sub = t("voor Icom IC-7300 / IC-7300MK2  ·  decoder & keyer",
                 "for Icom IC-7300 / IC-7300MK2  ·  decoder & keyer")
         if self.cfg.get("mycall"):
             sub += "  ·  " + self.cfg["mycall"].upper()
-        tk.Label(tt, text=sub, bg=C["bg"], fg=C["dim"], font=(UI, 10)).pack(anchor="w")
+        tk.Label(tt, text=sub, bg=C["bg"], fg=C["dim"], font=(UI, S(10))).pack(anchor="w")
         srow = tk.Frame(tt, bg=C["bg"])
         srow.pack(anchor="w")
-        self.status = label(srow, "", fg=C["amber"], font=(UI, 9), bg=C["bg"])
+        self.status = label(srow, "", fg=C["amber"], font=(UI, S(9)), bg=C["bg"])
         self.status.pack(side="left")
         self.status.bind("<Button-1>", self._status_click)
         self.upd_btn = FlatButton(srow, "", command=self._open_update, padx=10, pady=1,
-                                  font=(UI, 9, "bold"), accent=C["acc2"])
+                                  font=(UI, S(9), "bold"), accent=C["acc2"])
         if self.update_info:
             self._show_update_button()
 
@@ -1628,8 +1651,8 @@ class App:
         for name, attr in ((t("LOKAAL", "LOCAL"), "clk_loc"), ("UTC", "clk_utc")):
             col = tk.Frame(clk, bg=C["bg"])
             col.pack(side="left", padx=10)
-            label(col, name, fg=C["acc"], font=(UI, 8, "bold")).pack()
-            lb = tk.Label(col, text="--:--:--", bg=C["bg"], fg=C["text"], font=(DIGIT, 17, "bold"))
+            label(col, name, fg=C["acc"], font=(UI, S(8), "bold")).pack()
+            lb = tk.Label(col, text="--:--:--", bg=C["bg"], fg=C["text"], font=(MONO, S(17), "bold"), width=8)
             lb.pack()
             setattr(self, attr, lb)
 
@@ -1646,16 +1669,16 @@ class App:
         f, b, _ = panel(left)
         f.pack(fill="x")
         self.freq_lbl = tk.Label(b, text=self._freq_text(), bg=C["panel"], fg="#f4fbff",
-                                 font=(DIGIT, 32, "bold"), cursor="sb_v_double_arrow")
+                                 font=(MONO, S(30), "bold"), width=10, cursor="sb_v_double_arrow")
         self.freq_lbl.pack()
         self.freq_lbl.bind("<MouseWheel>", lambda e: self._step_tune(1 if e.delta > 0 else -1))
         fr = tk.Frame(b, bg=C["panel"])
         fr.pack(fill="x", pady=(2, 0))
-        self.mode_lbl = label(fr, "--", fg=C["acc"], font=(UI, 13, "bold"))
+        self.mode_lbl = label(fr, "--", fg=C["acc"], font=(UI, S(13), "bold"))
         self.mode_lbl.pack(side="left")
-        self.band_lbl = label(fr, "", fg=C["dim"], font=(UI, 11))
+        self.band_lbl = label(fr, "", fg=C["dim"], font=(UI, S(11)))
         self.band_lbl.pack(side="left", padx=10)
-        FlatButton(fr, t("Zet", "Set"), command=self.set_freq_khz, padx=8, pady=2, font=(UI, 9, "bold")).pack(side="right")
+        FlatButton(fr, t("Zet", "Set"), command=self.set_freq_khz, padx=8, pady=2, font=(UI, S(9), "bold")).pack(side="right")
         e = entry(fr, self.fentry, 9)
         e.pack(side="right", padx=4)
         e.bind("<Return>", lambda ev: self.set_freq_khz())
@@ -1664,30 +1687,30 @@ class App:
         # --- knop + stap
         f, b, _ = panel(left)
         f.pack(fill="x", pady=6)
-        self.knob = Knob(b, 124, self._step_tune)
+        self.knob = Knob(b, S(124), self._step_tune)
         self.knob.pack(side="left")
         side = tk.Frame(b, bg=C["panel"])
         side.pack(side="left", fill="both", expand=True, padx=(8, 0))
-        self.tx_lbl = tk.Label(side, text="RX", bg=C["green"], fg="#03141c", font=(UI, 14, "bold"), width=5, pady=1)
+        self.tx_lbl = tk.Label(side, text="RX", bg=C["green"], fg="#03141c", font=(UI, S(14), "bold"), width=5, pady=1)
         self.tx_lbl.pack(pady=(2, 6))
         label(side, t("Afstemstap", "Tuning step")).pack()
         sr = tk.Frame(side, bg=C["panel"])
         sr.pack(pady=2)
         FlatButton(sr, "‹", command=lambda: self._chg_step(-1), padx=9, pady=2).pack(side="left")
-        self.step_lbl = label(sr, "", fg=C["text"], font=(UI, 13, "bold"), width=7)
+        self.step_lbl = label(sr, "", fg=C["text"], font=(UI, S(13), "bold"), width=7)
         self.step_lbl.pack(side="left")
         FlatButton(sr, "›", command=lambda: self._chg_step(1), padx=9, pady=2).pack(side="left")
         self._chg_step(0)
-        label(side, t("slepen of scrollen", "drag or scroll"), font=(UI, 8)).pack(pady=(4, 0))
+        label(side, t("slepen of scrollen", "drag or scroll"), font=(UI, S(8))).pack(pady=(4, 0))
 
         # --- S-meter
         f, b, _ = panel(left)
         f.pack(fill="x")
-        self.meter = SMeter(b, 360, 112, t("SIGNAAL", "SIGNAL"))
+        self.meter = SMeter(b, S(360), S(112), t("SIGNAAL", "SIGNAL"))
         self.meter.pack()
-        self.bars = BarMeter(b, 360)
+        self.bars = BarMeter(b, S(360))
         self.bars.pack(pady=(6, 0))
-        self.vd_lbl = label(b, "", fg=C["dim"], font=(UI, 8))
+        self.vd_lbl = label(b, "", fg=C["dim"], font=(UI, S(8)))
         self.vd_lbl.pack(anchor="e")
 
         # --- AF / RF
@@ -1697,8 +1720,8 @@ class App:
                                ("PWR", self.pwr_var, self._send_pwr)):
             rw = tk.Frame(b, bg=C["panel"])
             rw.pack(fill="x", pady=0)
-            label(rw, name, fg=C["acc"], font=(UI, 10, "bold"), width=4).pack(side="left")
-            Slider(rw, var, 0, 255, command=cmd, width=240, height=20).pack(side="left", fill="x", expand=True)
+            label(rw, name, fg=C["acc"], font=(UI, S(10), "bold"), width=4).pack(side="left")
+            Slider(rw, var, 0, 255, command=cmd, width=S(240), height=S(20)).pack(side="left", fill="x", expand=True)
             vl = label(rw, "", fg=C["text"], width=6)
             vl.pack(side="left")
             if name == "PWR":
@@ -1714,7 +1737,7 @@ class App:
         head.title.config(text=t("DECODER-HULP", "DECODER TOOLS"))
         self.tool_btns = {}
         for key, txt in (("abbr", t("Afkortingen", "Abbrev.")), ("morse", "Morse"), ("dec", "Decoder")):
-            bt = FlatButton(head, txt, command=lambda k=key: self._tool_tab(k), padx=8, pady=1, font=(UI, 8, "bold"))
+            bt = FlatButton(head, txt, command=lambda k=key: self._tool_tab(k), padx=8, pady=1, font=(UI, S(8), "bold"))
             bt.pack(side="right", padx=1)
             self.tool_btns[key] = bt
         self.tool_body = b
@@ -1733,10 +1756,10 @@ class App:
         self.ifw_btns = {}
         for w in (50, 100, 250, 500, 1200, 2400):
             bt = FlatButton(b, f"{w}" if w < 1000 else f"{w / 1000:.1f}k",
-                            command=lambda w=w: self.set_ifw(w), width=3, pady=6, padx=8, font=(UI, 9, "bold"))
+                            command=lambda w=w: self.set_ifw(w), width=3, pady=6, padx=8, font=(UI, S(9), "bold"))
             bt.pack(side="left", padx=2)
             self.ifw_btns[w] = bt
-        self.ifw_lbl = label(b, "", fg=C["text"], font=(UI, 10, "bold"), width=7)
+        self.ifw_lbl = label(b, "", fg=C["text"], font=(UI, S(10), "bold"), width=7)
         self.ifw_lbl.pack(side="left", padx=4)
         tk.Frame(b, bg=C["border"], width=2, height=28).pack(side="left", padx=9)
         self.func_btns = {}
@@ -1755,41 +1778,41 @@ class App:
         f, b, head = panel(right, "")
         f.pack(fill="x", pady=8)
         self.scope_title = head.title
-        self.wf_scope = Waterfall(b, 66, 112, on_click=self._scope_click, label_fn=self._scope_label)
+        self.wf_scope = Waterfall(b, S(66), S(112), on_click=self._scope_click, label_fn=self._scope_label)
         self.wf_scope.canvas.pack(fill="x")
 
         # --- audio
         f, b, head = panel(right, t("AUDIO 0–3 kHz  ·  klik = decodeertoon", "AUDIO 0–3 kHz  ·  click = decode tone"))
         f.pack(fill="x")
-        self.dwpm_lbl = label(head, "-- wpm", fg=C["acc"], font=(MONO, 11, "bold"))
+        self.dwpm_lbl = label(head, "-- wpm", fg=C["acc"], font=(MONO, S(11), "bold"))
         self.dwpm_lbl.pack(side="right")
-        self.lvl = tk.Canvas(head, width=90, height=10, bg=C["scr"], highlightthickness=0)
+        self.lvl = tk.Canvas(head, width=S(90), height=S(10), bg=C["scr"], highlightthickness=0)
         self.lvl.pack(side="right", padx=10)
-        self.wf_audio = Waterfall(b, 52, 104, on_click=self._audio_click,
+        self.wf_audio = Waterfall(b, S(52), S(104), on_click=self._audio_click,
                                   label_fn=lambda fr: f"{fr * self.AUDIO_FMAX:.0f}")
         self.wf_audio.canvas.pack(fill="x")
         ctl = tk.Frame(b, bg=C["panel"])
         ctl.pack(fill="x", pady=(8, 0))
         label(ctl, t("Toon", "Tone")).pack(side="left")
         FlatButton(ctl, "−", command=lambda: self._tone_step(-10), padx=7, pady=1).pack(side="left", padx=(4, 0))
-        tk.Label(ctl, textvariable=self.tone_var, bg=C["panel"], fg=C["text"], font=(UI, 11, "bold"),
+        tk.Label(ctl, textvariable=self.tone_var, bg=C["panel"], fg=C["text"], font=(UI, S(11), "bold"),
                  width=5).pack(side="left")
         FlatButton(ctl, "+", command=lambda: self._tone_step(10), padx=7, pady=1).pack(side="left")
         label(ctl, "Hz   BW").pack(side="left", padx=(4, 4))
         self.bw_btns = {}
         for bw in ("AUTO", "50", "100", "200", "400"):
-            bt = FlatButton(ctl, bw, command=lambda bw=bw: self._set_bw(bw), padx=7, pady=1, font=(UI, 9, "bold"))
+            bt = FlatButton(ctl, bw, command=lambda bw=bw: self._set_bw(bw), padx=7, pady=1, font=(UI, S(9), "bold"))
             bt.pack(side="left", padx=1)
             self.bw_btns[bw] = bt
         self._set_bw(self.bw_var.get())
-        FlatButton(ctl, "AFC", var=self.afc_var, padx=9, pady=1, font=(UI, 9, "bold")).pack(side="left", padx=(10, 2))
+        FlatButton(ctl, "AFC", var=self.afc_var, padx=9, pady=1, font=(UI, S(9), "bold")).pack(side="left", padx=(10, 2))
         FlatButton(ctl, t("Stil bij TX", "Mute on TX"), var=self.mute_var, padx=9, pady=1,
-                   font=(UI, 9, "bold")).pack(side="left", padx=2)
+                   font=(UI, S(9), "bold")).pack(side="left", padx=2)
         for name, var, lo, hi, cmd in ((t("Squelch", "Squelch"), self.sq_var, 1.5, 5.0, lambda fin: self.apply_dec(False)),
                                        ("Contrast", self.range_var, 15, 80, None),
                                        ("Ref", self.ref_var, -20, 30, None)):
             label(ctl, name).pack(side="left", padx=(12, 2))
-            Slider(ctl, var, lo, hi, command=cmd, width=84, height=18).pack(side="left")
+            Slider(ctl, var, lo, hi, command=cmd, width=S(84), height=S(18)).pack(side="left")
 
         # --- decodeertekst + skimmer
         low = tk.Frame(right, bg=C["bg"])
@@ -1797,28 +1820,28 @@ class App:
         f, b, head = panel(low, t("SIGNALEN (skimmer)", "SIGNALS (skimmer)"))
         f.pack(side="right", fill="both", padx=(8, 0))
         FlatButton(head, t("Aan", "On"), var=self.skim_var, command=self._skim_toggle, padx=10, pady=1,
-                   font=(UI, 9, "bold")).pack(side="right")
+                   font=(UI, S(9), "bold")).pack(side="right")
         cols = ("hz", "wpm", "call", "text")
         self.tree = ttk.Treeview(b, columns=cols, show="headings", height=6, selectmode="browse")
-        for c_, w_, txt_ in (("hz", 50, "Hz"), ("wpm", 44, "WPM"), ("call", 90, "Call"),
-                             ("text", 250, t("Tekst", "Text"))):
+        for c_, w_, txt_ in (("hz", S(50), "Hz"), ("wpm", S(44), "WPM"), ("call", S(90), "Call"),
+                             ("text", S(250), t("Tekst", "Text"))):
             self.tree.heading(c_, text=txt_, anchor="w")
             self.tree.column(c_, width=w_, anchor="w", stretch=(c_ == "text"))
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self._skim_select)
         self.tree.bind("<Double-Button-1>", self._skim_call)
         label(b, t("klik = decoderen  ·  dubbelklik = call overnemen",
-                   "click = decode  ·  double-click = take call"), font=(UI, 8)).pack(anchor="w", pady=(4, 0))
+                   "click = decode  ·  double-click = take call"), font=(UI, S(8))).pack(anchor="w", pady=(4, 0))
 
         f, b, head = panel(low, t("ONTVANGEN  ·  klik op een call = naar Call-veld",
                                   "RECEIVED  ·  click a call = to Call field"))
         f.pack(side="left", fill="both", expand=True)
         FlatButton(head, t("Wis", "Clear"), command=lambda: self.txt.delete("1.0", "end"), padx=10, pady=1,
-                   font=(UI, 9, "bold")).pack(side="right")
+                   font=(UI, S(9), "bold")).pack(side="right")
         tf = tk.Frame(b, bg=C["scr"])
         tf.pack(fill="both", expand=True)
         self.txt = tk.Text(tf, height=5, bg=C["scr"], fg="#e6f4fa", insertbackground=C["acc"],
-                           font=(MONO, 15), wrap="word", relief="flat", padx=10, pady=8,
+                           font=(MONO, S(15)), wrap="word", relief="flat", padx=10, pady=8,
                            selectbackground=C["btnhi"], spacing1=2, spacing3=2)
         sb = ttk.Scrollbar(tf, orient="vertical", command=self.txt.yview)
         self.txt.config(yscrollcommand=sb.set)
@@ -1844,7 +1867,7 @@ class App:
         self.mode_btns = {}
         for name, code in (("CW", 0x03), ("CW-R", 0x07), ("LSB", 0x00), ("USB", 0x01),
                            ("RTTY", 0x04), ("AM", 0x02), ("FM", 0x05)):
-            bt = FlatButton(mr, name, command=lambda c=code: self.set_mode(c), width=4, pady=6, font=(UI, 11, "bold"))
+            bt = FlatButton(mr, name, command=lambda c=code: self.set_mode(c), width=4, pady=6, font=(UI, S(11), "bold"))
             bt.pack(side="left", padx=2)
             self.mode_btns[name] = bt
         br = tk.Frame(b, bg=C["panel"])
@@ -1852,7 +1875,7 @@ class App:
         self.band_btns = {}
         for name, fq in BANDS:
             bt = FlatButton(br, name, command=lambda fq=fq: self.set_freq(fq), width=3, pady=6, padx=9,
-                            font=(UI, 11, "bold"))
+                            font=(UI, S(11), "bold"))
             bt.pack(side="left", padx=2)
             self.band_btns[name] = bt
 
@@ -1861,9 +1884,9 @@ class App:
         r1 = tk.Frame(b, bg=C["panel"])
         r1.pack(fill="x")
         label(r1, "Call").pack(side="left")
-        ce = entry(r1, self.call_var, 11, font=(UI, 11, "bold"))
+        ce = entry(r1, self.call_var, 11, font=(UI, S(11), "bold"))
         ce.pack(side="left", padx=(3, 3))
-        FlatButton(r1, "QRZ", command=self.qrz_lookup, padx=7, pady=1, font=(UI, 8, "bold")).pack(side="left", padx=(0, 10))
+        FlatButton(r1, "QRZ", command=self.qrz_lookup, padx=7, pady=1, font=(UI, S(8), "bold")).pack(side="left", padx=(0, 10))
         label(r1, "RST snt").pack(side="left")
         entry(r1, self.rst_var, 4).pack(side="left", padx=(3, 8))
         label(r1, "RST rcv").pack(side="left")
@@ -1871,9 +1894,9 @@ class App:
         label(r1, t("Naam", "Name")).pack(side="left")
         entry(r1, self.hisname_var, 10).pack(side="left", padx=(3, 8))
         FlatButton(r1, t("LOG QSO", "LOG QSO") + "  Ctrl+L", command=self.log_qso, padx=10, pady=2,
-                   font=(UI, 9, "bold"), accent=C["green"]).pack(side="left")
+                   font=(UI, S(9), "bold"), accent=C["green"]).pack(side="left")
         FlatButton(r1, "+", command=lambda: self._wpm_step(1), padx=7, pady=0).pack(side="right")
-        tk.Label(r1, textvariable=self.wpm_var, bg=C["panel"], fg=C["text"], font=(UI, 13, "bold"),
+        tk.Label(r1, textvariable=self.wpm_var, bg=C["panel"], fg=C["text"], font=(UI, S(13), "bold"),
                  width=3).pack(side="right")
         FlatButton(r1, "−", command=lambda: self._wpm_step(-1), padx=7, pady=0).pack(side="right")
         label(r1, "WPM").pack(side="right", padx=(0, 4))
@@ -1882,21 +1905,21 @@ class App:
         for key in sorted(self.cfg["macros"], key=lambda k: int(k[1:])):
             lbl, _ = self.cfg["macros"][key]
             FlatButton(r2, f"{key}  {lbl}", command=lambda k=key: self.macro(k), padx=6, pady=3,
-                       font=(UI, 9, "bold")).pack(side="left", padx=2, fill="x", expand=True)
+                       font=(UI, S(9), "bold")).pack(side="left", padx=2, fill="x", expand=True)
             r.bind(f"<{key}>", lambda ev, k=key: self.macro(k))
         r3 = tk.Frame(b, bg=C["panel"])
         r3.pack(fill="x")
-        self.tx_entry = entry(r3, self.tx_var, 20, font=(MONO, 14))
+        self.tx_entry = entry(r3, self.tx_var, 20, font=(MONO, S(14)))
         self.tx_entry.pack(side="left", fill="x", expand=True, ipady=3)
         self.tx_entry.bind("<Return>", lambda ev: self.send_line())
         self.tx_entry.bind("<space>", self._space_key)
         FlatButton(r3, t("ZEND", "SEND") + "  ⏎", command=self.send_line, padx=14, pady=4).pack(side="left", padx=(8, 2))
         FlatButton(r3, "STOP  Esc", command=self.stop_tx, accent=C["red"], padx=14, pady=4).pack(side="left", padx=2)
         FlatButton(r3, "BK-IN", var=self.bkin_var, command=self._send_bkin, padx=9, pady=4,
-                   font=(UI, 9, "bold")).pack(side="left", padx=(10, 2))
+                   font=(UI, S(9), "bold")).pack(side="left", padx=(10, 2))
         FlatButton(r3, t("Per woord", "Per word"), var=self.live_var, padx=9, pady=4,
-                   font=(UI, 9, "bold")).pack(side="left", padx=2)
-        FlatButton(r3, "CQ ↻", var=self.cqrep_var, padx=9, pady=4, font=(UI, 9, "bold")).pack(side="left", padx=2)
+                   font=(UI, S(9), "bold")).pack(side="left", padx=2)
+        FlatButton(r3, "CQ ↻", var=self.cqrep_var, padx=9, pady=4, font=(UI, S(9), "bold")).pack(side="left", padx=2)
         r.bind("<Escape>", lambda ev: self.stop_tx())
         r.bind("<Control-l>", lambda ev: self.log_qso())
         r.bind("<Control-L>", lambda ev: self.log_qso())
@@ -1905,6 +1928,25 @@ class App:
         self._update_highlights()
         if not self.status.cget("text"):
             self._set_status(t("niet verbonden", "not connected"), C["amber"])
+
+    def _on_root_configure(self, ev):
+        if ev.widget is not self.root:
+            return
+        if self._resize_job:
+            self.root.after_cancel(self._resize_job)
+        self._resize_job = self.root.after(500, self._apply_scale)
+
+    def _apply_scale(self):
+        """Responsive: bij een duidelijk andere venstergrootte de interface opnieuw schalen."""
+        global SCALE
+        self._resize_job = None
+        w, h = self.root.winfo_width(), self.root.winfo_height()
+        if w < 200 or h < 200:
+            return
+        new = scale_for(w, h)
+        if abs(new - SCALE) >= 0.08:
+            SCALE = new
+            self.rebuild()
 
     def rebuild(self):
         """UI opnieuw opbouwen (taal/thema/macro's), zonder verbinding te verbreken."""
@@ -2372,8 +2414,8 @@ class App:
             d = self.audio.decoder
             lv = min(1.0, d.level / 2)
             self.lvl.delete("all")
-            self.lvl.create_rectangle(0, 0, 90 * lv, 10, fill=C["acc"] if d.state else C["btnhi"], outline="")
-            self.lvl.create_line(45, 0, 45, 10, fill=C["dim"])
+            self.lvl.create_rectangle(0, 0, S(90) * lv, S(10), fill=C["acc"] if d.state else C["btnhi"], outline="")
+            self.lvl.create_line(S(45), 0, S(45), S(10), fill=C["dim"])
             self.dwpm_lbl.config(text=f"{d.wpm:4.1f} wpm  ·  {d.bw:.0f} Hz")
 
     def _skim_refresh(self):
@@ -2784,10 +2826,10 @@ class App:
         if key == "dec":
             top = tk.Frame(b, bg=C["panel"])
             top.pack(fill="x")
-            self.td_wpm = tk.Label(top, text="--", bg=C["panel"], fg=C["acc"], font=(DIGIT, 22, "bold"), width=3)
+            self.td_wpm = tk.Label(top, text="--", bg=C["panel"], fg=C["acc"], font=(DIGIT, S(22), "bold"), width=3)
             self.td_wpm.pack(side="left")
-            label(top, "WPM", font=(UI, 9, "bold")).pack(side="left", anchor="s", pady=(0, 6))
-            self.td_code = tk.Label(top, text="", bg=C["panel"], fg=C["text"], font=(MONO, 16, "bold"), width=7,
+            label(top, "WPM", font=(UI, S(9), "bold")).pack(side="left", anchor="s", pady=(0, 6))
+            self.td_code = tk.Label(top, text="", bg=C["panel"], fg=C["text"], font=(MONO, S(16), "bold"), width=7,
                                     anchor="e")
             self.td_code.pack(side="right")
             grid = tk.Frame(b, bg=C["panel"])
@@ -2795,17 +2837,17 @@ class App:
             self.td = {}
             for i, (k, nl, en) in enumerate((("snr", "Signaal/ruis", "SNR"), ("dot", "Punt / streep", "Dit / dah"),
                                              ("wt", "Verhouding", "Weight"), ("gap", "Letter- / woordspatie", "Char / word gap"))):
-                label(grid, t(nl, en), font=(UI, 8)).grid(row=i, column=0, sticky="w")
-                v = label(grid, "--", fg=C["text"], font=(UI, 9, "bold"))
+                label(grid, t(nl, en), font=(UI, S(8))).grid(row=i, column=0, sticky="w")
+                v = label(grid, "--", fg=C["text"], font=(UI, S(9), "bold"))
                 v.grid(row=i, column=1, sticky="e", padx=(10, 0))
                 self.td[k] = v
             grid.columnconfigure(1, weight=1)
             bar = tk.Frame(b, bg=C["panel"])
             bar.pack(fill="x")
             FlatButton(bar, t("Neem snelheid over", "Match speed"), command=self._match_speed, padx=8, pady=3,
-                       font=(UI, 9, "bold")).pack(side="left")
+                       font=(UI, S(9), "bold")).pack(side="left")
             FlatButton(bar, t("Reset decoder", "Reset decoder"), command=self._reset_decoder, padx=8, pady=3,
-                       font=(UI, 9, "bold")).pack(side="left", padx=6)
+                       font=(UI, S(9), "bold")).pack(side="left", padx=6)
         elif key == "morse":
             items = [(c, MORSE[c]) for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"] + \
                     [(c, MORSE[c]) for c in "./?=,"] + [("AR", ".-.-."), ("SK", "...-.-"), ("KN", "-.--.")]
@@ -2817,20 +2859,20 @@ class App:
                 r_, c_ = i % rows, i // rows
                 cell = tk.Frame(g, bg=C["panel"])
                 cell.grid(row=r_, column=c_, sticky="w", padx=(0, 6))
-                tk.Label(cell, text=ch, bg=C["panel"], fg=C["acc"], font=(MONO, 9, "bold"), width=2,
+                tk.Label(cell, text=ch, bg=C["panel"], fg=C["acc"], font=(MONO, S(9), "bold"), width=2,
                          anchor="w").pack(side="left")
                 tk.Label(cell, text=code.replace(".", "·").replace("-", "–"), bg=C["panel"], fg=C["text"],
-                         font=(MONO, 9), anchor="w").pack(side="left")
+                         font=(MONO, S(9)), anchor="w").pack(side="left")
         else:
             tf = tk.Frame(b, bg=C["panel"])
             tf.pack(fill="both", expand=True)
-            txt = tk.Text(tf, bg=C["panel"], fg=C["text"], relief="flat", font=(UI, 9), wrap="none",
+            txt = tk.Text(tf, bg=C["panel"], fg=C["text"], relief="flat", font=(UI, S(9)), wrap="none",
                           height=8, highlightthickness=0, padx=2)
             sb = ttk.Scrollbar(tf, orient="vertical", command=txt.yview)
             txt.config(yscrollcommand=sb.set)
             sb.pack(side="right", fill="y")
             txt.pack(side="left", fill="both", expand=True)
-            txt.tag_config("k", foreground=C["acc"], font=(MONO, 9, "bold"))
+            txt.tag_config("k", foreground=C["acc"], font=(MONO, S(9), "bold"))
             for ab, nl, en in self.ABBR:
                 txt.insert("end", f"{ab:<7}", "k")
                 txt.insert("end", (nl if self.lang == "nl" else en) + "\n")
@@ -2948,7 +2990,7 @@ class App:
                                            q.get("RST_RCVD", ""), q.get("NAME", "")))
         bar = tk.Frame(w, bg=C["bg"])
         bar.pack(fill="x", padx=10, pady=(0, 10))
-        label(bar, t(f"{len(recs)} QSO's", f"{len(recs)} QSOs"), font=(UI, 10)).pack(side="left")
+        label(bar, t(f"{len(recs)} QSO's", f"{len(recs)} QSOs"), font=(UI, S(10))).pack(side="left")
 
         def export():
             from tkinter import filedialog
@@ -2993,9 +3035,9 @@ class App:
                 (t("Mijn QTH", "My QTH"), entry(b, qth_v, 14)),
                 (t("CQ-herhaling (s)", "CQ repeat (s)"), entry(b, cq_v, 5)),
                 (t("Updates", "Updates"), FlatButton(b, t("Automatisch controleren", "Check automatically"),
-                                                     var=self.upd_var, padx=8, pady=2, font=(UI, 9, "bold")))]
+                                                     var=self.upd_var, padx=8, pady=2, font=(UI, S(9), "bold")))]
         for i, (txt_, wd) in enumerate(grid):
-            label(b, txt_, font=(UI, 10)).grid(row=i // 2, column=(i % 2) * 2, sticky="w", padx=(0, 8), pady=4)
+            label(b, txt_, font=(UI, S(10))).grid(row=i // 2, column=(i % 2) * 2, sticky="w", padx=(0, 8), pady=4)
             wd.grid(row=i // 2, column=(i % 2) * 2 + 1, sticky="w", padx=(0, 24), pady=4)
 
         f, b, _ = panel(w, t("MACRO'S  ·  {MYCALL} {CALL} {RST} {NAME} {MYNAME} {MYQTH}  ·  prosigns <AR> <SK> <KN> <BT>",
@@ -3006,9 +3048,9 @@ class App:
             lbl_, txt_ = self.cfg["macros"][key]
             lv, tv = tk.StringVar(value=lbl_), tk.StringVar(value=txt_)
             mvars[key] = (lv, tv)
-            label(b, key, fg=C["acc"], font=(UI, 10, "bold")).grid(row=i, column=0, sticky="w", pady=3)
+            label(b, key, fg=C["acc"], font=(UI, S(10), "bold")).grid(row=i, column=0, sticky="w", pady=3)
             entry(b, lv, 9).grid(row=i, column=1, sticky="w", padx=6, pady=3)
-            entry(b, tv, 70, font=(MONO, 10)).grid(row=i, column=2, sticky="we", pady=3)
+            entry(b, tv, 70, font=(MONO, S(10))).grid(row=i, column=2, sticky="we", pady=3)
         b.columnconfigure(2, weight=1)
 
         bar = tk.Frame(w, bg=C["bg"])
@@ -3032,7 +3074,7 @@ class App:
         FlatButton(bar, t("Opslaan", "Save"), command=save, accent=C["acc"]).pack(side="right")
         FlatButton(bar, t("Annuleren", "Cancel"), command=w.destroy).pack(side="right", padx=6)
         label(bar, f"{APP_NAME} {APP_VERSION}  ·  MIT License  ·  " +
-              t("niet gelieerd aan Icom Inc.", "not affiliated with Icom Inc."), font=(UI, 8), bg=C["bg"]).pack(side="left")
+              t("niet gelieerd aan Icom Inc.", "not affiliated with Icom Inc."), font=(UI, S(8)), bg=C["bg"]).pack(side="left")
         w.grab_set()
 
     def _quit(self):
@@ -3051,7 +3093,7 @@ def main():
         root.state("zoomed")
     except tk.TclError:
         pass
-    root.minsize(1280, 860)
+    root.minsize(1000, 640)
     app = App(root)
     if not app.cfg.get("mycall"):
         root.after(600, app.show_settings)
