@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.2 – 2026-11-08
+- Spectrum scope: automatic level (noise floor) and a Contrast slider, so weak signals are visible
+- Audio waterfall range selectable: 1 / 1.5 / 2 / 3 kHz (default 2 kHz); skimmer follows the range
+- Scope title shows the number of scope points (diagnostics)
+
 ## 2.4.1 – 2026-11-08
 - Colour theme is applied immediately when chosen in Settings (the dialog stays open)
 

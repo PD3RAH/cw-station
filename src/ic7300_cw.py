@@ -39,7 +39,7 @@ except (ImportError, OSError):
 
 # ----------------------------------------------------------------- settings / instellingen
 APP_NAME = "CW Station"
-APP_VERSION = "2.4.1"
+APP_VERSION = "2.4.2"
 SURVEY_URL = "https://www.pd3rah.nl/cwstation/enquete.php"
 REPO_URL = "https://github.com/PD3RAH/cw-station"
 RELEASE_API = "https://api.github.com/repos/PD3RAH/cw-station/releases/latest"
@@ -64,6 +64,7 @@ DEFAULT_CONFIG = {
     "theme": "Amber",
     "cq_repeat": 8,
     "check_updates": True,
+    "audio_range": 2000,
     "macros": {
         "F1": ["CQ", "CQ CQ CQ DE {MYCALL} {MYCALL} {MYCALL} K"],
         "F2": ["Call", "{CALL} DE {MYCALL} {MYCALL} K"],
@@ -1439,7 +1440,11 @@ def read_adif(path):
 
 # ----------------------------------------------------------------- hoofdapplicatie
 class App:
-    AUDIO_FMAX = 3000.0
+    AUDIO_RANGES = (1000, 1500, 2000, 3000)
+
+    @property
+    def AUDIO_FMAX(self):
+        return float(self.cfg.get("audio_range", 2000))
     STEPS = [10, 50, 100, 500, 1000, 5000]
 
     def __init__(self, root):
@@ -1554,6 +1559,7 @@ class App:
         self.rf_var = tk.DoubleVar(value=255)
         self.pwr_var = tk.DoubleVar(value=255)
         self.upd_var = tk.BooleanVar(value=bool(self.cfg.get("check_updates", True)))
+        self.scope_gain = tk.DoubleVar(value=float(self.cfg.get("scope_gain", 0.55)))
         self.fentry = tk.StringVar()
         self.call_var = tk.StringVar()
         self.rst_var = tk.StringVar(value="599")
@@ -1778,11 +1784,20 @@ class App:
         f, b, head = panel(right, "")
         f.pack(fill="x", pady=8)
         self.scope_title = head.title
+        Slider(head, self.scope_gain, 0.2, 1.0, width=S(80), height=S(16)).pack(side="right")
+        label(head, t("Contrast", "Contrast")).pack(side="right", padx=(10, 4))
         self.wf_scope = Waterfall(b, S(66), S(112), on_click=self._scope_click, label_fn=self._scope_label)
         self.wf_scope.canvas.pack(fill="x")
 
         # --- audio
-        f, b, head = panel(right, t("AUDIO 0–3 kHz  ·  klik = decodeertoon", "AUDIO 0–3 kHz  ·  click = decode tone"))
+        f, b, head = panel(right, t("AUDIO  ·  klik = decodeertoon", "AUDIO  ·  click = decode tone"))
+        self.range_btns = {}
+        for rg in self.AUDIO_RANGES:
+            bt = FlatButton(head, f"{rg / 1000:g} kHz", command=lambda rg=rg: self._set_range(rg), padx=6, pady=0,
+                            font=(UI, S(8), "bold"))
+            bt.pack(side="left", padx=(6 if rg == self.AUDIO_RANGES[0] else 1, 0))
+            bt.set_active(rg == int(self.AUDIO_FMAX))
+            self.range_btns[rg] = bt
         f.pack(fill="x")
         self.dwpm_lbl = label(head, "-- wpm", fg=C["acc"], font=(MONO, S(11), "bold"))
         self.dwpm_lbl.pack(side="right")
@@ -2164,6 +2179,7 @@ class App:
             idx = int(self.dev_var.get().split(":")[0])
             self.audio = AudioEngine(idx, self._on_wf_row, self._make_decoder, Skimmer)
             self.audio.skimmer.enabled = self.skim_var.get()
+            self.audio.skimmer.fmax = self.AUDIO_FMAX - 40
         except Exception as e:
             self.audio = None
             messagebox.showerror("Audio", self.t(f"Kan audio niet starten:\n{e}", f"Cannot start audio:\n{e}"))
@@ -2361,7 +2377,7 @@ class App:
                         self.func_btns["pamp"].config(text=("P.AMP", "P.AMP1", "P.AMP2")[min(item[2], 2)])
                     hl = True
                 elif kind == "scope":
-                    self.wf_scope.add_row(item[1])
+                    self._scope_row(item[1])
                 elif kind == "awf":
                     self._audio_row(item[1], item[2])
                 elif kind == "ng":
@@ -2398,7 +2414,8 @@ class App:
             base = t(f"SPECTRUMSCOPE {self.radio_name}  ·  klik = afstemmen", f"SPECTRUM SCOPE {self.radio_name}  ·  click = tune")
             if self.civ and self.scope_var.get():
                 if n:
-                    self.scope_title.config(text=f"{base}  ·  {n} frames/s", fg=C["dim"])
+                    self.scope_title.config(text=f"{base}  ·  {n} frames/s  ·  {getattr(self, 'scope_pts', 0)} pt",
+                                            fg=C["dim"])
                 else:
                     if self.radio_addr == 0xB6:
                         hint = t("SPECTRUMSCOPE  ·  GEEN scope-data: kies COM-poort A (CI-V), 115200 baud, scope aan op de radio",
@@ -2443,6 +2460,16 @@ class App:
         if sel and self.tree.exists(sel[0]):
             self.tree.selection_set(sel[0])
         self.wf_audio.labels = labels
+
+    def _scope_row(self, v):
+        """Scope-data (0..1 = 0..160 van de radio) automatisch op niveau brengen."""
+        self.scope_pts = len(v)
+        floor = float(np.percentile(v, 25))
+        sf = getattr(self, "_scope_floor", None)
+        self._scope_floor = floor if sf is None else 0.85 * sf + 0.15 * floor
+        rng = max(0.05, 0.42 * (1.15 - self.scope_gain.get()))     # hoger contrast = kleiner bereik
+        self.wf_scope.add_row((v - self._scope_floor) / rng + 0.12)
+        self.cfg["scope_gain"] = round(self.scope_gain.get(), 2)
 
     def _skim_toggle(self):
         if self.audio and self.audio.skimmer:
@@ -2517,7 +2544,7 @@ class App:
     # ---------- acties
     def apply_dec(self, user=True):
         try:
-            tt = min(max(int(self.tone_var.get()), 150), 2950)
+            tt = min(max(int(self.tone_var.get()), 150), int(self.AUDIO_FMAX) - 50)
         except (ValueError, tk.TclError):
             tt = 600
         self.tone_var.set(tt)
@@ -2533,9 +2560,24 @@ class App:
         v = self.bw_var.get()
         return "auto" if v == "AUTO" else float(v)
 
+    def _set_range(self, rg):
+        self.cfg["audio_range"] = int(rg)
+        for k, bt in self.range_btns.items():
+            bt.set_active(k == rg)
+        self.wf_audio.arr[:] = 0                 # nieuwe schaal: waterval leegmaken
+        self.wf_audio.row = None
+        self.wf_floor = None
+        if self.audio and self.audio.skimmer:
+            self.audio.skimmer.fmax = rg - 40
+            self.audio.skimmer.hold = None
+        if self.tone_var.get() > rg - 50:
+            self.tone_var.set(int(rg * 0.4))
+            self.apply_dec()
+        self._save_cfg()
+
     def _audio_click(self, frac):
         tt = int(round(frac * self.AUDIO_FMAX / 5) * 5)
-        self.tone_var.set(min(max(tt, 150), 2950))
+        self.tone_var.set(min(max(tt, 150), int(self.AUDIO_FMAX) - 50))
         self.tone_anchor = self.tone_var.get()
         self.apply_dec()
 

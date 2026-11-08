@@ -109,8 +109,8 @@ The program remembers these choices for next time.
 | **AF / RF / PWR** | Volume, RF gain and transmit power of the radio |
 | **Decoder tools** | Speed and quality of the received signal, a Morse table and CW abbreviations |
 | **Function bar** | FIL1–3, IF width, NB, NR, P.AMP, ATT, ATU, TUNE and SCOPE |
-| **Spectrum scope** | The radio's scope as spectrum and waterfall |
-| **Audio waterfall** | The audio from the radio (0–3 kHz) with the decoder settings |
+| **Spectrum scope** | The radio's scope as spectrum and waterfall. Use **Contrast** to make weak signals more visible |
+| **Audio waterfall** | The audio from the radio with the decoder settings. Choose the range with **1 / 1.5 / 2 / 3 kHz**; match it to your filter (usually 1.5 kHz in CW) |
 | **Received** | Decoded text. Your own sent text is shown in a different colour |
 | **Signals (skimmer)** | All CW stations in the audio, with callsign, speed and text |
 | **Bottom bar** | Mode and band buttons, QSO details, macros and the send field |

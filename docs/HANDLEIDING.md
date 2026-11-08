@@ -109,8 +109,8 @@ Het programma onthoudt deze keuzes voor de volgende keer.
 | **AF / RF / PWR** | Volume, RF-gain en zendvermogen van de radio |
 | **Decoder-hulp** | Snelheid en kwaliteit van het ontvangen signaal, een morsetabel en CW-afkortingen |
 | **Functiebalk** | FIL1–3, IF-breedte, NB, NR, P.AMP, ATT, ATU, TUNE en SCOPE |
-| **Spectrumscope** | De scope van de radio als spectrum en waterval |
-| **Audio-waterval** | De audio uit de radio (0–3 kHz) met decoderinstellingen |
+| **Spectrumscope** | De scope van de radio als spectrum en waterval. Met **Contrast** maak je zwakke signalen beter zichtbaar |
+| **Audio-waterval** | De audio uit de radio met de decoderinstellingen. Kies het bereik met **1 / 1.5 / 2 / 3 kHz**; neem het bereik van je filter (bij CW meestal 1,5 kHz) |
 | **Ontvangen** | Gedecodeerde tekst. Je eigen verzonden tekst staat er in een andere kleur |
 | **Signalen (skimmer)** | Alle CW-stations in de audio, met call, snelheid en tekst |
 | **Onderbalk** | Mode- en bandknoppen, QSO-gegevens, macro's en het zendveld |
