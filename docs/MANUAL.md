@@ -57,14 +57,14 @@ A **CW Station** shortcut is added to your desktop and the Start menu.
 
 ### "Windows protected your PC" message (Windows SmartScreen)
 
-When you start the installer or an update, Windows often shows this message (Dutch Windows shown):
+When you start the installer or an update, Windows often shows this message:
 
-![Windows protected your PC](smartscreen_1.png)
+![Windows protected your PC](smartscreen_1_en.png)
 
 1. Click **More info**.
 2. A **Run anyway** button now appears. Click it.
 
-![Run anyway](smartscreen_2.png)
+![Run anyway](smartscreen_2_en.png)
 
 **Why does this appear?** CW Station is free hobby software without a (paid) code-signing certificate. Windows therefore does not recognise the program, and the publisher is shown as *"Unknown publisher"*. The message does not mean that it contains a virus. Only download the installer from the official place: the *Releases* page at **github.com/PD3RAH/cw-station**.
 

@@ -59,12 +59,12 @@ Er komt een snelkoppeling **CW Station** op je bureaublad en in het Startmenu.
 
 Bij het starten van de installer of een update toont Windows vaak deze melding:
 
-![Uw pc wordt beschermd](smartscreen_1.png)
+![Uw pc wordt beschermd](smartscreen_1_nl.png)
 
 1. Klik op **Meer informatie**.
 2. Er verschijnt nu een knop **Toch uitvoeren**. Klik daarop.
 
-![Toch uitvoeren](smartscreen_2.png)
+![Toch uitvoeren](smartscreen_2_nl.png)
 
 **Waarom krijg je deze melding?** CW Station is gratis hobbysoftware zonder (betaald) digitaal certificaat. Windows kent het programma daardoor niet, en de uitgever staat als *"Onbekende uitgever"* vermeld. De melding betekent niet dat er een virus in zit. Download de installer alleen van de officiële plek: de *Releases*-pagina op **github.com/PD3RAH/cw-station**.
 
