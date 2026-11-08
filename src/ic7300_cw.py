@@ -39,7 +39,7 @@ except (ImportError, OSError):
 
 # ----------------------------------------------------------------- settings / instellingen
 APP_NAME = "CW Station"
-APP_VERSION = "2.4.2"
+APP_VERSION = "2.4.3"
 SURVEY_URL = "https://www.pd3rah.nl/cwstation/enquete.php"
 REPO_URL = "https://github.com/PD3RAH/cw-station"
 RELEASE_API = "https://api.github.com/repos/PD3RAH/cw-station/releases/latest"
@@ -558,6 +558,30 @@ def find_calls(text):
     return out
 
 
+def skim_calls(text):
+    """Alleen 'bevestigde' calls: woord is af, en komt >= 2x voor of staat na DE/CQ/TEST."""
+    words = text.split()
+    if text and not text.endswith(" ") and words:
+        words = words[:-1]                      # laatste woord komt nog binnen
+    count, ctx = {}, set()
+    for i, w in enumerate(words):
+        if CALL_RE.fullmatch(w) and w not in NOT_CALLS:
+            count[w] = count.get(w, 0) + 1
+            if i > 0 and words[i - 1] in ("DE", "CQ", "TEST"):
+                ctx.add(w)
+    good = [w for w in count if count[w] >= 2 or w in ctx]
+    return good
+
+
+def text_quality(text, wpm, ratio):
+    """Grove kwaliteitsschatting: ruis geeft vooral E/T/I, '*' en onwaarschijnlijke snelheden."""
+    chars = [c for c in text[-60:] if c != " "]
+    if len(chars) < 6:
+        return True
+    eti = sum(c in "ETI*" for c in chars) / len(chars)
+    return 6 <= wpm <= 50 and 2.2 <= ratio <= 4.3 and eti < 0.5
+
+
 class Skimmer:
     """Decodeert tot MAXCH CW-signalen tegelijk in de audio-doorlaat."""
 
@@ -572,12 +596,14 @@ class Skimmer:
         self.enabled = True
         self.lock = threading.Lock()
         self.t_audio = 0.0
+        self.cand = {}                          # kandidaat-pieken (per 10 Hz) -> score
 
     def _new_dec(self, tone, c):
         def on_text(t, c=c):
             c["text"] = (c["text"] + t)[-400:]
             c["last"] = time.time()
         d = CWDecoder(self.fs, on_text, tone=tone, bw="auto", wpm=20)
+        d.squelch = 2.6                         # skimmer strenger dan de hoofddecoder
         return d
 
     def process(self, blk):
@@ -614,6 +640,25 @@ class Skimmer:
             if len(peaks) >= self.MAXCH:
                 break
         now = self.t_audio
+        # nieuwe kanalen alleen uit het actuele spectrum: een piek moet een paar keer kort na elkaar
+        # duidelijk (12 dB) boven de ruis uitkomen - typisch voor een geseind CW-signaal, zeldzaam voor ruis
+        cur = p[lo:hi]
+        cur_floor = float(np.median(cur))
+        for k in list(self.cand):
+            self.cand[k] *= 0.8
+            if self.cand[k] < 0.2:
+                del self.cand[k]
+        mm = (cur[1:-1] > cur[:-2]) & (cur[1:-1] >= cur[2:]) & (cur[1:-1] > cur_floor + 14)
+        confirmed = []
+        for i in np.flatnonzero(mm) + 1:
+            f = (lo + i) * binhz
+            key = int(round(f / 10.0))
+            near = [k for k in self.cand if abs(k - key) <= 2]
+            if near:
+                key = max(near, key=lambda k: self.cand[k])
+            self.cand[key] = self.cand.get(key, 0.0) + 1.0
+            if self.cand[key] >= 3.0:
+                confirmed.append(key * 10.0)
         with self.lock:
             for f, lvl in peaks:
                 best = None
@@ -626,13 +671,19 @@ class Skimmer:
                     if abs(best["tone"] - f) > 3:
                         best["tone"] += 0.2 * (f - best["tone"])
                         best["dec"].set_tone(best["tone"])
-                elif len(self.ch) < self.MAXCH:
+                elif len(self.ch) < self.MAXCH and any(abs(f - q) < 25 for q in confirmed):
                     c = {"id": self.nextid, "tone": f, "text": "", "seen": now, "last": 0.0,
                          "snr": lvl, "created": now}
                     c["dec"] = self._new_dec(f, c)
                     self.ch[self.nextid] = c
                     self.nextid += 1
-            cur_floor = np.median(p[lo:hi])
+            # kanalen dichter dan 45 Hz bij elkaar samenvoegen (houd de sterkste)
+            for c in sorted(self.ch.values(), key=lambda c: -c["snr"]):
+                if c["id"] not in self.ch:
+                    continue
+                for o in list(self.ch.values()):
+                    if o is not c and abs(o["tone"] - c["tone"]) < 45 and o["snr"] <= c["snr"]:
+                        del self.ch[o["id"]]
             for c in self.ch.values():
                 k = int(round(c["tone"] / binhz))
                 if p[max(k - 1, 0):k + 2].max() > cur_floor + 10:
@@ -643,8 +694,12 @@ class Skimmer:
 
     def snapshot(self):
         with self.lock:
-            return [dict(id=c["id"], tone=c["tone"], text=c["text"], wpm=c["dec"].wpm,
-                         snr=c["snr"], last=c["last"]) for c in self.ch.values()]
+            out = []
+            for c in self.ch.values():
+                d = c["dec"]
+                out.append(dict(id=c["id"], tone=c["tone"], text=c["text"], wpm=d.wpm, snr=c["snr"],
+                                last=c["last"], good=text_quality(c["text"], d.wpm, d.dash / max(d.dot, 1e-3))))
+            return out
 
 
 # ----------------------------------------------------------------- hulpfuncties: foutlog en http
@@ -1790,7 +1845,8 @@ class App:
         self.wf_scope.canvas.pack(fill="x")
 
         # --- audio
-        f, b, head = panel(right, t("AUDIO  ·  klik = decodeertoon", "AUDIO  ·  click = decode tone"))
+        f, b, head = panel(right, t("AUDIO  ·  klik op een signaal om het te decoderen",
+                                    "AUDIO  ·  click a signal to decode it"))
         self.range_btns = {}
         for rg in self.AUDIO_RANGES:
             bt = FlatButton(head, f"{rg / 1000:g} kHz", command=lambda rg=rg: self._set_range(rg), padx=6, pady=0,
@@ -1845,11 +1901,12 @@ class App:
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self._skim_select)
         self.tree.bind("<Double-Button-1>", self._skim_call)
-        label(b, t("klik = decoderen  ·  dubbelklik = call overnemen",
-                   "click = decode  ·  double-click = take call"), font=(UI, S(8))).pack(anchor="w", pady=(4, 0))
+        label(b, t("Klik op een regel: dat station decoderen  ·  dubbelklik: call naar Call-veld",
+                   "Click a row: decode that station  ·  double-click: call to Call field"),
+              font=(UI, S(8))).pack(anchor="w", pady=(4, 0))
 
-        f, b, head = panel(low, t("ONTVANGEN  ·  klik op een call = naar Call-veld",
-                                  "RECEIVED  ·  click a call = to Call field"))
+        f, b, head = panel(low, t("ONTVANGEN  ·  klik op een onderstreepte call om hem in het Call-veld te zetten",
+                                  "RECEIVED  ·  click an underlined call to put it in the Call field"))
         f.pack(side="left", fill="both", expand=True)
         FlatButton(head, t("Wis", "Clear"), command=lambda: self.txt.delete("1.0", "end"), padx=10, pady=1,
                    font=(UI, S(9), "bold")).pack(side="right")
@@ -2411,7 +2468,8 @@ class App:
             self._lf_t = now
             n = self.scope_frames - getattr(self, "_lf_n", 0)
             self._lf_n = self.scope_frames
-            base = t(f"SPECTRUMSCOPE {self.radio_name}  ·  klik = afstemmen", f"SPECTRUM SCOPE {self.radio_name}  ·  click = tune")
+            base = t(f"SPECTRUMSCOPE {self.radio_name}  ·  klik op een signaal om erop af te stemmen",
+                     f"SPECTRUM SCOPE {self.radio_name}  ·  click a signal to tune to it")
             if self.civ and self.scope_var.get():
                 if n:
                     self.scope_title.config(text=f"{base}  ·  {n} frames/s  ·  {getattr(self, 'scope_pts', 0)} pt",
@@ -2448,9 +2506,10 @@ class App:
         self.tree.delete(*self.tree.get_children())
         labels = []
         for c in rows:
-            calls = find_calls(c["text"])
-            de = [w for w, after_de in calls if after_de]
-            call = (de or [w for w, _ in calls] or [""])[-1]
+            if not c["good"]:
+                continue                                        # lijkt op ruis: niet tonen
+            calls = skim_calls(c["text"])
+            call = calls[-1] if calls else ""
             tail = " ".join(c["text"].split())[-40:]
             iid = str(c["id"])
             self.tree.insert("", "end", iid=iid, values=(f"{c['tone']:.0f}", f"{c['wpm']:.0f}", call, tail))

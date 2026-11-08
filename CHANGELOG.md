@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.3 – 2026-11-08
+- Skimmer: far fewer false detections. New channels need a peak that repeatedly rises 14 dB above the
+  noise; channels closer than 45 Hz are merged; noise-like channels are hidden; callsigns are shown
+  only when the word is complete and seen twice or after DE/CQ/TEST.
+  (Test with strong band noise: false callsigns 22 -> 0, visible noise rows 8 -> 1-2.)
+- Clearer panel titles and hints
+
 ## 2.4.2 – 2026-11-08
 - Spectrum scope: automatic level (noise floor) and a Contrast slider, so weak signals are visible
 - Audio waterfall range selectable: 1 / 1.5 / 2 / 3 kHz (default 2 kHz); skimmer follows the range
