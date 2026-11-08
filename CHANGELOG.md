@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.4.1 – 2026-11-08
+- Colour theme is applied immediately when chosen in Settings (the dialog stays open)
+
 ## 2.4.0 – 2026-11-08
 - Responsive interface: fonts, knob, meters, waterfalls and sliders scale with the window
   (small laptop screens up to 1440p and larger); re-layout after resizing

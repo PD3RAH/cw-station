@@ -39,7 +39,7 @@ except (ImportError, OSError):
 
 # ----------------------------------------------------------------- settings / instellingen
 APP_NAME = "CW Station"
-APP_VERSION = "2.4.0"
+APP_VERSION = "2.4.1"
 SURVEY_URL = "https://www.pd3rah.nl/cwstation/enquete.php"
 REPO_URL = "https://github.com/PD3RAH/cw-station"
 RELEASE_API = "https://api.github.com/repos/PD3RAH/cw-station/releases/latest"
@@ -1952,7 +1952,8 @@ class App:
         """UI opnieuw opbouwen (taal/thema/macro's), zonder verbinding te verbreken."""
         text = self.txt.get("1.0", "end-1c")
         for w in self.root.winfo_children():
-            w.destroy()
+            if not isinstance(w, tk.Toplevel):         # open dialogen (instellingen) laten staan
+                w.destroy()
         C.update(THEMES.get(self.cfg.get("theme", "Amber"), THEMES["Amber"]))
         self.status = None
         self._style()
@@ -3026,10 +3027,21 @@ class App:
         name_v = tk.StringVar(value=self.cfg.get("myname", ""))
         qth_v = tk.StringVar(value=self.cfg.get("myqth", ""))
         cq_v = tk.StringVar(value=str(self.cfg.get("cq_repeat", 8)))
+        theme_cb = ttk.Combobox(b, textvariable=theme_v, state="readonly", width=14,
+                                values=[tname(k) for k in THEMES])
+
+        def live_theme(ev=None):
+            """Kleur direct toepassen op het hoofdvenster."""
+            th = next((k for k in THEMES if tname(k) == theme_v.get()), "Amber")
+            if th != self.cfg.get("theme"):
+                self.cfg["theme"] = th
+                self._save_cfg()
+                self.rebuild()
+                w.lift()
+        theme_cb.bind("<<ComboboxSelected>>", live_theme)
         grid = [(t("Taal", "Language"), ttk.Combobox(b, textvariable=lang_v, state="readonly", width=14,
                                                     values=["Nederlands", "English"])),
-                (t("Kleur", "Colour"), ttk.Combobox(b, textvariable=theme_v, state="readonly", width=14,
-                                                    values=[tname(k) for k in THEMES])),
+                (t("Kleur", "Colour"), theme_cb),
                 (t("Mijn call", "My call"), entry(b, call_v, 14)),
                 (t("Mijn naam", "My name"), entry(b, name_v, 14)),
                 (t("Mijn QTH", "My QTH"), entry(b, qth_v, 14)),
